@@ -1,8 +1,22 @@
 #!/bin/bash
 
 # ------------------------------------------------------------------------------
-readonly FILES=".*[.]\(p.\|[it]?html\|php\|cgi\|t\|js\|s?css\|feature\|sql\|yml\|json\|txt|md|c|cpp|h\)$"
 readonly QUIET=0
+readonly EXT=(
+    "c" "cpp" "h" 
+    "p." "t" "cgi"
+    "php" "[it]?html?" "s?css"
+    "yml" "sql" "json" "js"
+    "cfg" "conf"
+    "log"
+)
+
+FILES_RX=".*[.]\("
+for i in "${EXT[@]}"; do
+    FILES_RX+="${i}\|"
+done
+FILES_RX+="txt\)$"
+
 # ------------------------------------------------------------------------------
 function process_file
 {
@@ -30,7 +44,7 @@ fi
 while [ $# -gt 0 ]; do
     if [[ -d ${1} ]]; then
         ((${QUIET})) || echo "Directory \"${1}\""
-        for FILE in $(find "${1}" -type f -regex "${FILES}"); do
+        for FILE in $(find "${1}" -type f -regex "${FILES_RX}"); do
             process_file ${FILE} " "
         done
     elif [[ -f ${1} ]]; then
