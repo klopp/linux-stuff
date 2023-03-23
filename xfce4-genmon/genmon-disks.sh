@@ -119,8 +119,8 @@ TOOLTIP+="├─ Used\t\t\t: ${USED}\n"
 TOOLTIP+="├─ Free\t\t\t\t: ${FREE}\n"
 TOOLTIP+="└─ Temperature\t: <span weight='bold' fgcolor='$GREEN'>${TEMPERATURE}</span> ℃"
 
-echo -e "<click>${CLICK} &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
-echo -e "<bar>${PERCENTAGE}</bar>"
-echo -e "<tool>${TOOLTIP}</tool>"
+echo "<click>${CLICK} &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
+echo "<bar>${PERCENTAGE}</bar>"
+echo "<tool>${TOOLTIP}</tool>"
 
 # ------------------------------------------------------------------------------
