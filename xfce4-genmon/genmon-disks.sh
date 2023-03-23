@@ -13,7 +13,7 @@ GREEN="green"
 function usage
 {
     cat << USAGE
-Usage: $(basename "$0") [options], where options are:
+Usage: $(basename "${0}") [options], where options are:
     -d, --disk
         Disk letter (REQUIRED, "a" => "/dev/sda", "b" => "/dev/sdb", etc)
     -p, --part

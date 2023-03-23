@@ -11,7 +11,7 @@ GREEN="green"
 function usage
 {
     cat << USAGE
-Usage: $(basename "$0") [options], where options are:
+Usage: $(basename "${0}") [options], where options are:
     -p, --proc
         "Red" used memory percentage (default is 80)
 USAGE

@@ -7,7 +7,7 @@ readonly QUIET=0
 function process_file
 {
     R=$(grep $'\r' "${1}")
-    ((${QUIET})) || echo "${2}${1}..."
+    ((${QUIET})) || echo "${2}\"${1}\"..."
     if [ -n "${R}" ]; then
         TEMPFILE=$(mktemp)
         getfacl -p "${1}" > "${TEMPFILE}.acl"
@@ -17,13 +17,13 @@ function process_file
         rm "${TEMPFILE}.acl"
         ((${QUIET})) || echo "${2} all \\r removed"
     else
-        ((${QUIET})) || echo "${2} skip, no \\r found"
+        ((${QUIET})) || echo "${2} no \\r found"
     fi   
 }
 
 # ------------------------------------------------------------------------------
 if [ -z "${1}" ]; then
-    echo "Usage: $(basename $0) {file|dir} [ {file|dir} ... ]"
+    echo "Usage: $(basename ${0}) {file|dir} [ {file|dir} ... ]"
     exit 1 
 fi
 
