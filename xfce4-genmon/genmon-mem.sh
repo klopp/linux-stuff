@@ -60,21 +60,38 @@ done
 req "cat" "awk" "cut" "numfmt"
 
 # ------------------------------------------------------------------------------
-TOTAL=$(  cat /proc/meminfo | cut -d '.' -f1 | awk '/MemTotal:/{print $2}')
-FREE=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/MemFree:/{print $2}')
-CACHED=$( cat /proc/meminfo | cut -d '.' -f1 | awk '/^Ca/{print $2}')
-BUFFERS=$(cat /proc/meminfo | cut -d '.' -f1 | awk '/Buffers:/{print $2}')
+TOTAL=$(     cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemTotal:/{print $2}')
+FREE=$(      cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemFree:/{print $2}')
+CACHED=$(    cat /proc/meminfo | cut -d '.' -f1 | awk '/^Cached:/{print $2}')
+SHARED=$(    cat /proc/meminfo | cut -d '.' -f1 | awk '/^Shmem:/{print $2}')
+BUFFERS=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/^Buffers:/{print $2}')
+AVAILABLE=$( cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemAvailable:/{print $2}')
+SW_TOTAL=$(  cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapTotal:/{print $2}')
+SW_FREE=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapFree:/{print $2}')
 
-FREE=$(( ${FREE} + ${CACHED} + ${BUFFERS} ))
-PERCENTAGE=$(( ((${TOTAL} - ${FREE}) * 100) / ${TOTAL} ))
-TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
-FREE=$(  numfmt --to iec --format "%.2f" $(( ${FREE}  * 1024 )) )
+PERCENTAGE=$(( ((${TOTAL} - ${AVAILABLE}) * 100) / ${TOTAL} ))
+(( "${PERCENTAGE}" > "${PMAX}" )) && GREEN="red"
 
-if [ "${PERCENTAGE}" -gt "${PMAX}" ]; then
-    GREEN="red"
-fi
+TOTAL=$(     numfmt --to iec --format "%.2f" $(( ${TOTAL}     * 1024 )) )
+FREE=$(      numfmt --to iec --format "%.2f" $(( ${FREE}      * 1024 )) )
+CACHED=$(    numfmt --to iec --format "%.2f" $(( ${CACHED}    * 1024 )) )
+SHARED=$(    numfmt --to iec --format "%.2f" $(( ${SHARED}    * 1024 )) )
+BUFFERS=$(   numfmt --to iec --format "%.2f" $(( ${BUFFERS}   * 1024 )) )
+AVAILABLE=$( numfmt --to iec --format "%.2f" $(( ${AVAILABLE} * 1024 )) )
+SW_TOTAL=$(  numfmt --to iec --format "%.2f" $(( ${SW_TOTAL}  * 1024 )) )
+SW_FREE=$(   numfmt --to iec --format "%.2f" $(( ${SW_FREE}   * 1024 )) )
 
-TOOLTIP="Total memory: ${TOTAL}\\nFree memory: ${FREE}\\nUsed: <span fgcolor='${GREEN}' weight='bold'>${PERCENTAGE}</span>%\\n"
+TOOLTIP="┌ <span weight='bold'>RAM</span>\n";
+TOOLTIP+="├─ Total\t\t: ${TOTAL}\n"
+TOOLTIP+="├─ Free\t\t\t: ${FREE}\n"
+TOOLTIP+="├─ Shared\t\t: ${SHARED}\n"
+TOOLTIP+="├─ Cached\t\t: ${CACHED}\n"
+TOOLTIP+="├─ Buffers\t\t: ${BUFFERS}\n"
+TOOLTIP+="└─ Available\t: ${AVAILABLE}\n"
+
+TOOLTIP+="┌ <span weight='bold'>Swap</span>\n";
+TOOLTIP+="├─ Total\t\t: ${SW_TOTAL}\n"
+TOOLTIP+="└─ Free\t\t\t: ${SW_FREE}\n"
 
 echo -e "<click>xfce4-taskmanager &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
