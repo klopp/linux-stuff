@@ -25,11 +25,11 @@ USAGE
 }
 
 # ------------------------------------------------------------------------------
-function is_int 
+function check_int 
 {
     readonly int_rx="^[0-9]+$"
     if ! [[ "${1}" =~ $int_rx ]]; then
-        echo ""
+        echo "0"
     else
         echo "${1}"
     fi
@@ -49,10 +49,8 @@ while [ $# -gt 0 ]; do
             continue
         ;;
         '-t' | '--tmax')
-            TMAX=$(is_int "${2}")
-            if [ -z ${TMAX} ]; then
-                usage
-            fi
+            TMAX=$(check_int "${2}")
+            ((${TMAX})) || usage
             shift 2
             continue
         ;;
@@ -67,8 +65,11 @@ if [ -z "${DEV}" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-TEMPERATURE=$(sudo smartctl -A /dev/sd${DEV} | grep -i temperature | awk '{print $10}')
-if [ "${TEMPERATURE}" -gt "${TMAX}" ]; then
+TEMPERATURE=$( check_int $(sudo smartctl -A /dev/sd${DEV} | grep -i temperature | awk '{print $10}') )
+if ((${TEMPERATURE} == 0 )); then
+    TEMPERATURE="?"
+    GREEN="red"
+elif [ "${TEMPERATURE}" -gt "${TMAX}" ]; then
     GREEN="red"
 fi
 
@@ -81,12 +82,19 @@ elif hash bleachbit &> /dev/null; then
     CLICK+="bleachbit"
 fi
 
-USED=$( df ${PART} | awk '/\/dev/{print $3}')
-TOTAL=$(df ${PART} | awk '/\/dev/{print $2}')
-PERCENTAGE=$(( ${USED} * 100 / ${TOTAL} ))
+USED=$( check_int $( df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $3}') )
+TOTAL=$( check_int $(df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $2}') )
 
-TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
-USED=$(  numfmt --to iec --format "%.2f" $(( ${USED}  * 1024 )) )
+if (( ${USED} < ${TOTAL} )); then 
+    PERCENTAGE=$(( ${USED} * 100 / ${TOTAL} ))
+    TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
+    USED=$(  numfmt --to iec --format "%.2f" $(( ${USED}  * 1024 )) )
+else
+    PERCENTAGE="?"
+    TOTAL="?"
+    USED="?"
+    GREEN="red"
+fi
 
 TOOLTIP="<span weight='bold' fgcolor='blue'>${PART}</span> on <span fgcolor='blue'>/dev/sd${DEV}</span>\\n"
 TOOLTIP+="Used ${USED} from ${TOTAL} (<span weight='bold'>${PERCENTAGE}</span>%)\\n"
