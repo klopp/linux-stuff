@@ -44,14 +44,16 @@ sub _check_config_section
     my ( $config, $section ) = @_;
     my $content = $config->{$section};
     for ( keys %{$content} ) {
-        if ( !/^[[:lower:]]$/sm ) {
-            $content->{lc} = $content->{$_};
+        if ( !/^[[:lower:]]+$/sm ) {
+            $content->{ lc() } = $content->{$_};
             delete $content->{$_};
         }
     }
-    if ( !$content->{host} || !$content->{user} || !$content->{password} || !$content->{mailbox} ) {
-        _help();
-    }
+    _help( $section, 'Host' )     unless $content->{host};
+    _help( $section, 'User' )     unless $content->{user};
+    _help( $section, 'Password' ) unless $content->{password};
+    _help( $section, 'Click' )    unless $content->{click};
+    _help( $section, 'Mailbox' )  unless $content->{mailbox};
     $content->{mailbox} = [ $content->{mailbox} ]
         unless ref $content->{mailbox} eq 'ARRAY';
     return $content;
@@ -82,14 +84,17 @@ USAGE
 # ------------------------------------------------------------------------------
 sub _help
 {
+    my ( $section, $value ) = @_;
+    printf "No '%s' in section [%s]\n", $value, $section if $section;
     say <<'HELP';
 
-Valid config file:
+Valid config file, all fields are required:
     [Unique Name]
     Host = IP:PORT
     User = USER
     Password = PASSWORD
     Mailbox = INBOX
+    ; There may be several Mailbox fields:
     Mailbox = Job
     Mailbox = Friends
     ...
