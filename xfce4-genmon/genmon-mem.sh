@@ -13,17 +13,17 @@ function usage
     cat << USAGE
 Usage: $(basename "${0}") [options], where options are:
     -p, --proc
-        "Red" used memory percentage (default is 80)
+        "Red" used memory percentage (< 100, default is 80)
 USAGE
     exit 1
 }
 
 # ------------------------------------------------------------------------------
-function is_int 
+function check_int 
 {
     readonly int_rx="^[0-9]+$"
     if ! [[ "${1}" =~ $int_rx ]]; then
-        echo ""
+        echo "0"
     else
         echo "${1}"
     fi
@@ -34,11 +34,8 @@ while [ $# -gt 0 ]; do
     case "${1}" in
         '-p' | '--pmax')
             shift
-            PMAX=$(is_int "${1}")
-            if [ -z ${PMAX} ]; then
-                usage
-            fi
-            (( ${PMAX} < 100 )) || usage
+            PMAX=$(check_int "${1}")
+            (( ${PMAX} < 100 && ${PMAX} > 0 )) || usage
             shift
             continue
         ;;
