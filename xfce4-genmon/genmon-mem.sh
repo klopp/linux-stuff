@@ -89,9 +89,9 @@ TOOLTIP+="├─ Cached\t\t: ${CACHED}\n"
 TOOLTIP+="├─ Buffers\t\t: ${BUFFERS}\n"
 TOOLTIP+="└─ Available\t: <span weight='bold' fgcolor='${GREEN}'>${AVAILABLE}</span>\n"
 
-TOOLTIP+="┌ <span weight='bold'>Swap</span>\n";
+TOOLTIP+="\n┌ <span weight='bold'>Swap</span>\n";
 TOOLTIP+="├─ Total\t\t: ${SW_TOTAL}\n"
-TOOLTIP+="└─ Free\t\t\t: ${SW_FREE}\n"
+TOOLTIP+="└─ Free\t\t\t: ${SW_FREE}"
 
 echo -e "<click>xfce4-taskmanager &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
