@@ -10,9 +10,13 @@
 
 Скрипты для [xfce4-genmon-plugin](https://docs.xfce.org/panel-plugins/xfce4-genmon-plugin/start).
 
+![](demo/genmon.png) 
+
 ### genmon-mem.sh
 
 Мониторит память. В тултипе показывает всего/свободно. Если памяти занято больше порога, иконка и прочее "краснеют". При клике по иконке запускает [xfce4-taskmanager](https://docs.xfce.org/apps/xfce4-taskmanager/start).
+
+![](demo/genmon-mem.png) 
 
 ### genmon-disks.sh
 
@@ -22,3 +26,4 @@
 * [gparted](https://gparted.org/)
 * [bleachbit](https://www.bleachbit.org/)
 
+![](demo/genmon-disks.png) 
