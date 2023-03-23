@@ -10,6 +10,18 @@ TMAX="50"
 GREEN="green"
 
 # ------------------------------------------------------------------------------
+function req
+{
+    while [ $# -gt 0 ]; do
+        if ! hash ${1} &> /dev/null; then
+            echo "No required command: \"${1}\""
+            exit 2
+        fi
+        shift
+    done
+}
+    
+# ------------------------------------------------------------------------------
 function usage
 {
     cat << USAGE
@@ -64,6 +76,8 @@ if [ -z "${DEV}" ]; then
     usage
 fi
 
+req "sudo" "df" "awk" "grep" "smartctl" "numfmt"
+
 # ------------------------------------------------------------------------------
 TEMPERATURE=$( check_int $(sudo smartctl -A /dev/sd${DEV} | grep -i temperature | awk '{print $10}') )
 if ((${TEMPERATURE} == 0 )); then
@@ -82,7 +96,7 @@ elif hash bleachbit &> /dev/null; then
     CLICK+="bleachbit"
 fi
 
-USED=$( check_int $( df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $3}') )
+USED=$(  check_int $(df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $3}') )
 TOTAL=$( check_int $(df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $2}') )
 
 if (( ${USED} < ${TOTAL} )); then 
