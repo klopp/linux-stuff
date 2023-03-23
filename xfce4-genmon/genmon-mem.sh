@@ -70,9 +70,7 @@ SW_TOTAL=$(  cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapTotal:/{print $2}')
 SW_FREE=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapFree:/{print $2}')
 
 PERCENTAGE=$(( ((${TOTAL} - ${AVAILABLE}) * 100) / ${TOTAL} ))
-if [ "${PERCENTAGE}" -gt "${PMAX}" ]; then
-    GREEN="red"
-fi
+(( "${PERCENTAGE}" > "${PMAX}" )) && GREEN="red"
 
 TOTAL=$(     numfmt --to iec --format "%.2f" $(( ${TOTAL}     * 1024 )) )
 FREE=$(      numfmt --to iec --format "%.2f" $(( ${FREE}      * 1024 )) )
