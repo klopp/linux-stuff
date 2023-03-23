@@ -87,7 +87,7 @@ TOOLTIP+="├─ Free\t\t\t: ${FREE}\n"
 TOOLTIP+="├─ Shared\t\t: ${SHARED}\n"
 TOOLTIP+="├─ Cached\t\t: ${CACHED}\n"
 TOOLTIP+="├─ Buffers\t\t: ${BUFFERS}\n"
-TOOLTIP+="└─ Available\t: ${AVAILABLE}\n"
+TOOLTIP+="└─ Available\t: <span weight='bold' fgcolor='${GREEN}'>${AVAILABLE}</span>\n"
 
 TOOLTIP+="┌ <span weight='bold'>Swap</span>\n";
 TOOLTIP+="├─ Total\t\t: ${SW_TOTAL}\n"
