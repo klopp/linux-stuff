@@ -8,6 +8,18 @@ PMAX="80"
 GREEN="green"
 
 # ------------------------------------------------------------------------------
+function req
+{
+    while [ $# -gt 0 ]; do
+        if ! hash ${1} &> /dev/null; then
+            echo "No required command: \"${1}\""
+            exit 2
+        fi
+        shift
+    done
+}
+
+# ------------------------------------------------------------------------------
 function usage
 {
     cat << USAGE
@@ -45,10 +57,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+req "cat" "awk" "cut" "numfmt"
+
 # ------------------------------------------------------------------------------
-TOTAL=$(cat   /proc/meminfo | cut -d '.' -f1 | awk '/MemTotal:/{print $2}')
-FREE=$(cat    /proc/meminfo | cut -d '.' -f1 | awk '/MemFree:/{print $2}')
-CACHED=$(cat  /proc/meminfo | cut -d '.' -f1 | awk '/^Ca/{print $2}')
+TOTAL=$(  cat /proc/meminfo | cut -d '.' -f1 | awk '/MemTotal:/{print $2}')
+FREE=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/MemFree:/{print $2}')
+CACHED=$( cat /proc/meminfo | cut -d '.' -f1 | awk '/^Ca/{print $2}')
 BUFFERS=$(cat /proc/meminfo | cut -d '.' -f1 | awk '/Buffers:/{print $2}')
 
 FREE=$(( ${FREE} + ${CACHED} + ${BUFFERS} ))
