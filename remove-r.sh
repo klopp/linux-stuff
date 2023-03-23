@@ -4,7 +4,7 @@
 readonly QUIET=0
 readonly EXT=(
     "c" "cpp" "h" 
-    "p." "t" "cgi"
+    "p[mly]" "t" "cgi"
     "php" "[it]?html?" "s?css"
     "yml" "sql" "json" "js"
     "cfg" "conf"
