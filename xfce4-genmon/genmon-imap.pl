@@ -33,13 +33,33 @@ catch {
 };
 
 while ( my ($section) = each %config ) {
-    _check_config_section( \%config, $section );
+    if ( $section =~ /^icon$/ism ) {
+        if ( $section ne 'icon' ) {
+            $config{icon} = $config{$section};
+            delete $config{$section};
+        }
+    }
+    else {
+        _check_imap_section( \%config, $section );
+    }
+}
+if ( !$config{icon}->{'new'} || !-f $config{icon}->{'new'} ) {
+    say 'Can not find "New" icon.';
+    _help();
+}
+if ( !$config{icon}->{'nonew'} || !-f $config{icon}->{'nonew'} ) {
+    say 'Can not find "NoNew" icon.';
+    _help();
 }
 
-p %config;
+my %data;
+while ( my ( $section, $content ) = each %config ) {
+
+    #    $data{$section} = _check_mailboxes($content);
+}
 
 # ------------------------------------------------------------------------------
-sub _check_config_section
+sub _check_imap_section
 {
     my ( $config, $section ) = @_;
     my $content = $config->{$section};
@@ -88,7 +108,11 @@ sub _help
     printf "No '%s' in section [%s]\n", $value, $section if $section;
     say <<'HELP';
 
-Valid config file, all fields are required:
+Valid [Icon] section, all fields are required:
+    New = /path/to/icon
+    NoNew = /path/to/icon
+
+Valid IMAP sections, all fields are required:
     [Unique Name]
     Host = IP:PORT
     User = USER
