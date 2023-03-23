@@ -96,13 +96,16 @@ elif hash bleachbit &> /dev/null; then
     CLICK+="bleachbit"
 fi
 
-USED=$(  check_int $(df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $3}') )
-TOTAL=$( check_int $(df ${PART} 2>&1 >/dev/null | awk '/\/dev/{print $2}') )
+USED=$(  check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $3}') )
+TOTAL=$( check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $2}') )
+FREE="?"
 
 if (( ${USED} < ${TOTAL} )); then 
     PERCENTAGE=$(( ${USED} * 100 / ${TOTAL} ))
+    FREE=$(( ${TOTAL} - ${USED} ))
     TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
     USED=$(  numfmt --to iec --format "%.2f" $(( ${USED}  * 1024 )) )
+    FREE=$(  numfmt --to iec --format "%.2f" $(( ${FREE}  * 1024 )) )
 else
     PERCENTAGE="?"
     TOTAL="?"
@@ -110,9 +113,11 @@ else
     GREEN="red"
 fi
 
-TOOLTIP="<span weight='bold' fgcolor='blue'>${PART}</span> on <span fgcolor='blue'>/dev/sd${DEV}</span>\\n"
-TOOLTIP+="Used ${USED} from ${TOTAL} (<span weight='bold'>${PERCENTAGE}</span>%)\\n"
-TOOLTIP+="Temperature: <span weight='bold' fgcolor='$GREEN'>${TEMPERATURE}</span> ℃"
+TOOLTIP="┌ <span weight='bold' fgcolor='blue'>${PART}</span> on <span fgcolor='blue'>/dev/sd${DEV}</span>\n"
+TOOLTIP+="├─ Total\t\t\t: ${TOTAL}\n"
+TOOLTIP+="├─ Used\t\t\t: ${USED}\n"
+TOOLTIP+="├─ Free\t\t\t\t: ${FREE}\n"
+TOOLTIP+="└─ Temperature\t: <span weight='bold' fgcolor='$GREEN'>${TEMPERATURE}</span> ℃"
 
 echo -e "<click>${CLICK} &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
