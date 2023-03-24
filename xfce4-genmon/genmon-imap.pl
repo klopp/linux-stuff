@@ -64,7 +64,7 @@ while ( my ( $section, $config ) = each %config ) {
 }
 
 my $total   = 0;
-my $tooltip = '';
+my $tooltip = q{};
 
 while ( my ( $imap, $mailboxes ) = each %data ) {
     $tooltip .= "<span fgcolor='blue' weight='bold'>$imap</span>\n";
@@ -76,7 +76,7 @@ while ( my ( $imap, $mailboxes ) = each %data ) {
 
     while ( my ( $mailbox, $unseen ) = each %{$mailboxes} ) {
         $tooltip .= "  $mailbox : ";
-        if ( $unseen =~ /^\d+$/ ) {
+        if ( $unseen =~ /^\d+$/sm ) {
             if ($unseen) {
                 $total += $unseen;
                 $tooltip .= "<span weight='bold' fgcolor='green'>$unseen</span>\n";
@@ -99,8 +99,7 @@ sub _check_mailboxes
     my ($config) = @_;
 
     my %mailboxes;
-    my $total = 0;
-    my $imap  = Mail::IMAPClient->new(
+    my $imap = Mail::IMAPClient->new(
         Server   => $config->{host},
         User     => $config->{user},
         Password => $config->{password},
@@ -108,7 +107,7 @@ sub _check_mailboxes
         ssl      => 1,
     );
     if ( !$imap ) {
-        $mailboxes{_} = $@;
+        $mailboxes{_} = $EVAL_ERROR;
         return \%mailboxes;
     }
 
@@ -116,12 +115,7 @@ sub _check_mailboxes
         my $box    = decode_utf8($_);
         my $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
         my $error  = $imap->LastError;
-        if ($error) {
-            $mailboxes{$box} = $error;
-        }
-        else {
-            $mailboxes{$box} = $unseen;
-        }
+        $mailboxes{$box} = $error ? $error : $unseen;
     }
     $imap->logout;
     return \%mailboxes;
@@ -175,7 +169,7 @@ sub _usage
 {
     my ($help) = @_;
 
-    my $USAGE = q{
+    CORE::state $USAGE = <<'USAGE';
 Usage: %s [config_file]
 
 If no configuration file is specified on the command line, the first one found will be used (extension can be .conf or .cfg):
@@ -184,8 +178,7 @@ If no configuration file is specified on the command line, the first one found w
     %s/../etc/%s.conf
     %s/../conf/%s.conf
     /etc/%s.conf
-};
-
+USAGE
     printf $USAGE, $EXE_NAME, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $CONFIG_NAME;
     return _help();
 }
@@ -195,7 +188,7 @@ sub _help
 {
     my ( $section, $value ) = @_;
 
-    my $HELP = q{
+    CORE::state $HELP = <<'HELP';
 Valid config format:
 
     # If New/NoNew empty, then the following icons will be used:
@@ -219,7 +212,7 @@ Valid config format:
         Mailbox = Job
         Mailbox = Friends
         $...
-};
+HELP
 
     printf "No '%s' in section [%s]\n", $value, $section if $section;
     printf $HELP, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME;
