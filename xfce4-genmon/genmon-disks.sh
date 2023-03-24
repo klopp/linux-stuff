@@ -3,7 +3,11 @@
 # ------------------------------------------------------------------------------
 export LC_NUMERIC="C"
 
-readonly IMGTPL="$HOME/xxx/Templates/icons/hw/hdd-32-3-%s.png"
+SELF_DIR=$(basename -- "${0}")
+SELF_DIR=${SELF_DIR%.*}
+CONF_IMG="$HOME/.config/${SELF_DIR%.*}/%s.png"
+SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
+
 DEV=""
 PART="/home"
 TMAX="50" 
@@ -45,6 +49,17 @@ function check_int
     else
         echo "${1}"
     fi
+}
+
+# ------------------------------------------------------------------------------
+function get_img
+{
+    local img=$(printf ${CONF_IMG} ${GREEN})
+    if [[ -f ${img} ]]; then
+        echo ${img}
+    else
+        printf ${SELF_IMG} ${GREEN}
+    fi   
 }
 
 # ------------------------------------------------------------------------------
@@ -119,7 +134,7 @@ TOOLTIP+="├─ Used\t\t\t: ${USED}\n"
 TOOLTIP+="├─ Free\t\t\t\t: ${FREE}\n"
 TOOLTIP+="└─ Temperature\t: <span weight='bold' fgcolor='$GREEN'>${TEMPERATURE}</span> ℃"
 
-echo -e "<click>${CLICK} &> /dev/null</click><img>$(printf ${IMGTPL} ${GREEN})</img>"
+echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
 echo -e "<tool>${TOOLTIP}</tool>"
 
