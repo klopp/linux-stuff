@@ -14,6 +14,7 @@ use Encode qw/decode_utf8/;
 use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
+use File::Spec;
 use Mail::IMAPClient;
 use Try::Tiny;
 
@@ -22,7 +23,7 @@ use DDP;
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
 const my $EXE_NAME    => basename $PROGRAM_NAME;
-const my $EXE_DIR     => dirname $PROGRAM_NAME;
+const my $EXE_DIR     => File::Spec->rel2abs( dirname $PROGRAM_NAME);
 const my $CONFIG_NAME => $EXE_NAME =~ /^(.*)[.][^.]+$/ms ? $1 : $EXE_NAME;
 const my $TPL         => <<'TPL';
 <click>%s &> /dev/null</click><img>%s</img>
@@ -64,13 +65,29 @@ while ( my ( $section, $config ) = each %config ) {
 
 my $total   = 0;
 my $tooltip = '';
+
 while ( my ( $imap, $mailboxes ) = each %data ) {
-    $tooltip .= "$imap\n";
+    $tooltip .= "<span fgcolor='blue' weight='bold'>$imap</span>\n";
+
+    if ( $mailboxes->{_} ) {
+        $tooltip .= '  <span fgcolor="red">' . $mailboxes->{_} . "</span>\n";
+        next;
+    }
+
     while ( my ( $mailbox, $unseen ) = each %{$mailboxes} ) {
+        $tooltip .= "  $mailbox : ";
         if ( $unseen =~ /^\d+$/ ) {
-            $total += $unseen;
+            if ($unseen) {
+                $total += $unseen;
+                $tooltip .= "<span weight='bold' fgcolor='green'>$unseen</span>\n";
+            }
+            else {
+                $tooltip .= "$unseen\n";
+            }
         }
-        $tooltip .= "  $mailbox : $unseen\n";
+        else {
+            $tooltip .= "<span fgcolor='red'>$unseen</span>\n";
+        }
     }
 }
 
@@ -91,8 +108,8 @@ sub _check_mailboxes
         ssl      => 1,
     );
     if ( !$imap ) {
-        $data{__} = $@;
-        return 0;
+        $mailboxes{_} = $@;
+        return \%mailboxes;
     }
 
     for ( @{ $config->{mailbox} } ) {
@@ -161,7 +178,7 @@ sub _usage
     my $USAGE = q{
 Usage: %s [config_file]
 
-If no configuration file is specified on the command line, the first one found will be used:
+If no configuration file is specified on the command line, the first one found will be used (extension can be .conf or .cfg):
     ~/.%s
     ~/.%s.conf
     %s/../etc/%s.conf
@@ -183,11 +200,14 @@ Valid config format:
 
     # If New/NoNew empty, then the following icons will be used:
     # ~/.config/%s/new.png 
-    # ~/.config/%s/nonew.png 
+    # ~/.config/%s/nonew.png
+    # or
+    # %s/%s/new.png 
+    # %s/%s/nonew.png 
     New = /path/to/icon
     NoNew = /path/to/icon
 
-    # Optional 
+    # Optional. 
     Click = /usr/bin/thunderbird
     
     [Unique Name]
@@ -199,15 +219,10 @@ Valid config format:
         Mailbox = Job
         Mailbox = Friends
         $...
-Valid comments at line start:
-    ; comment
-    # comment    
-    - comment    
-    $ comment    
 };
 
     printf "No '%s' in section [%s]\n", $value, $section if $section;
-    printf $HELP, $CONFIG_NAME, $CONFIG_NAME;
+    printf $HELP, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME;
     exit 1;
 }
 
