@@ -125,7 +125,10 @@ sub _check_mailboxes
 sub _check_icon
 {
     my ( $config, $icon ) = @_;
-    $config->{_}->{$icon} //= sprintf '~/.config/%s/%s.png', $CONFIG_NAME, $icon;
+    $config->{_}->{$icon} //= sprintf '%s/.config/%s/%s.png', $ENV{HOME}, $CONFIG_NAME, $icon;
+    $config->{_}->{$icon} = File::Spec->rel2abs( $config->{_}->{$icon} );
+    $config->{_}->{$icon} = sprintf '%s/%s/%s.png', $EXE_DIR, $CONFIG_NAME, $icon
+        unless -f $config->{_}->{$icon};
 
     if ( !-f $config->{_}->{$icon} ) {
         printf "Can not find icon '%s'\n", $config->{_}->{$icon};
