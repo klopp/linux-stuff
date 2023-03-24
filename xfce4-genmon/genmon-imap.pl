@@ -10,6 +10,7 @@ use Carp qw/carp/;
 use Config::Find;
 use Config::Std;
 use Const::Fast;
+use Encode qw/decode_utf8/;
 use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
@@ -23,6 +24,10 @@ our $VERSION = 'v1.0';
 const my $EXE_NAME    => basename $PROGRAM_NAME;
 const my $EXE_DIR     => dirname $PROGRAM_NAME;
 const my $CONFIG_NAME => $EXE_NAME =~ /^(.*)[.][^.]+$/ms ? $1 : $EXE_NAME;
+const my $TPL         => <<'TPL';
+<click>%s &> /dev/null</click><img>%s</img>
+<tool>%s</tool>
+TPL
 
 # ------------------------------------------------------------------------------
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
@@ -36,8 +41,6 @@ catch {
     carp $_;
     _help();
 };
-
-p %config;
 
 for ( keys %config ) {
     if ($_) {
@@ -54,19 +57,58 @@ _check_icon( \%config, 'nonew' );
 $config{_}->{click} //= 'true';
 
 my %data;
-while ( my ( $section, $content ) = each %config ) {
-
-    #    $data{$section} = _check_mailboxes($content);
+while ( my ( $section, $config ) = each %config ) {
+    next if $section eq q{_};
+    $data{$section} = _check_mailboxes($config);
 }
 
-my $tpl = <<'TPL';
-<click>%s &> /dev/null</click><img>%s</img>
-<tool>%s</tool>
-TPL
+my $total   = 0;
+my $tooltip = '';
+while ( my ( $imap, $mailboxes ) = each %data ) {
+    $tooltip .= "$imap\n";
+    while ( my ( $mailbox, $unseen ) = each %{$mailboxes} ) {
+        if ( $unseen =~ /^\d+$/ ) {
+            $total += $unseen;
+        }
+        $tooltip .= "  $mailbox : $unseen\n";
+    }
+}
 
-printf $tpl, $config{_}->{click},
-    $data{unseen} ? $config{_}->{'new'} : $config{_}->{'nonew'},
-    '?';
+printf $TPL, $config{_}->{click}, $total ? $config{_}->{'new'} : $config{_}->{'nonew'}, $tooltip;
+
+# ------------------------------------------------------------------------------
+sub _check_mailboxes
+{
+    my ($config) = @_;
+
+    my %mailboxes;
+    my $total = 0;
+    my $imap  = Mail::IMAPClient->new(
+        Server   => $config->{host},
+        User     => $config->{user},
+        Password => $config->{password},
+        debug    => 0,
+        ssl      => 1,
+    );
+    if ( !$imap ) {
+        $data{__} = $@;
+        return 0;
+    }
+
+    for ( @{ $config->{mailbox} } ) {
+        my $box    = decode_utf8($_);
+        my $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
+        my $error  = $imap->LastError;
+        if ($error) {
+            $mailboxes{$box} = $error;
+        }
+        else {
+            $mailboxes{$box} = $unseen;
+        }
+    }
+    $imap->logout;
+    return \%mailboxes;
+}
 
 # ------------------------------------------------------------------------------
 sub _check_icon
@@ -110,10 +152,13 @@ sub _check_imap_section
 }
 
 # ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 sub _usage
 {
     my ($help) = @_;
-    my $usage = <<'USAGE';
+
+    my $USAGE = q{
 Usage: %s [config_file]
 
 If no configuration file is specified on the command line, the first one found will be used:
@@ -122,8 +167,9 @@ If no configuration file is specified on the command line, the first one found w
     %s/../etc/%s.conf
     %s/../conf/%s.conf
     /etc/%s.conf
-USAGE
-    printf $usage, $EXE_NAME, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $CONFIG_NAME;
+};
+
+    printf $USAGE, $EXE_NAME, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $CONFIG_NAME;
     return _help();
 }
 
@@ -131,9 +177,8 @@ USAGE
 sub _help
 {
     my ( $section, $value ) = @_;
-    printf "No '%s' in section [%s]\n", $value, $section if $section;
-    my $help = <<'HELP';
 
+    my $HELP = q{
 Valid config format:
 
     # If New/NoNew empty, then the following icons will be used:
@@ -146,22 +191,23 @@ Valid config format:
     Click = /usr/bin/thunderbird
     
     [Unique Name]
-    Host = IP:PORT
-    User = USER
-    Password = PASSWORD
-    Mailbox = INBOX
-    ; There may be several Mailbox fields:
-    Mailbox = Job
-    Mailbox = Friends
-    ...
+        Host = IP:PORT
+        User = USER
+        Password = PASSWORD
+        Mailbox = INBOX
+        ; There may be several Mailbox fields:
+        Mailbox = Job
+        Mailbox = Friends
+        $...
 Valid comments at line start:
     ; comment
     # comment    
     - comment    
     $ comment    
+};
 
-HELP
-    printf $help, $CONFIG_NAME, $CONFIG_NAME;
+    printf "No '%s' in section [%s]\n", $value, $section if $section;
+    printf $HELP, $CONFIG_NAME, $CONFIG_NAME;
     exit 1;
 }
 
