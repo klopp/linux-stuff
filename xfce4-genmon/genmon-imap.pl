@@ -6,9 +6,10 @@ use open qw/:std :utf8/;
 use Modern::Perl;
 
 # ------------------------------------------------------------------------------
-use Carp qw/carp confess/;
+use Carp qw/carp/;
 use Config::Find;
 use Config::Std;
+use Const::Fast;
 use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
@@ -19,8 +20,12 @@ use DDP;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
+const my $EXE_NAME    => basename $PROGRAM_NAME;
+const my $EXE_DIR     => dirname $PROGRAM_NAME;
+const my $CONFIG_NAME => $EXE_NAME =~ /^(.*)[.][^.]+$/ms ? $1 : $EXE_NAME;
 
 # ------------------------------------------------------------------------------
+_usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
 my $configfile = $ARGV[0] ? $ARGV[0] : Config::Find->find;
 _usage() unless ($configfile);
 my %config;
@@ -32,25 +37,21 @@ catch {
     _help();
 };
 
-while ( my ($section) = each %config ) {
-    if ( $section =~ /^icon$/ism ) {
-        if ( $section ne 'icon' ) {
-            $config{icon} = $config{$section};
-            delete $config{$section};
-        }
+p %config;
+
+for ( keys %config ) {
+    if ($_) {
+        _check_imap_section( \%config, $_ );
     }
     else {
-        _check_imap_section( \%config, $section );
+        $config{_} = $config{$_};
+        _lower_keys( $config{_} );
+        delete $config{$_};
     }
 }
-if ( !$config{icon}->{'new'} || !-f $config{icon}->{'new'} ) {
-    say 'Can not find "New" icon.';
-    _help();
-}
-if ( !$config{icon}->{'nonew'} || !-f $config{icon}->{'nonew'} ) {
-    say 'Can not find "NoNew" icon.';
-    _help();
-}
+_check_icon( \%config, 'new' );
+_check_icon( \%config, 'nonew' );
+$config{_}->{click} //= 'true';
 
 my %data;
 while ( my ( $section, $content ) = each %config ) {
@@ -58,21 +59,50 @@ while ( my ( $section, $content ) = each %config ) {
     #    $data{$section} = _check_mailboxes($content);
 }
 
+my $tpl = <<'TPL';
+<click>%s &> /dev/null</click><img>%s</img>
+<tool>%s</tool>
+TPL
+
+printf $tpl, $config{_}->{click},
+    $data{unseen} ? $config{_}->{'new'} : $config{_}->{'nonew'},
+    '?';
+
+# ------------------------------------------------------------------------------
+sub _check_icon
+{
+    my ( $config, $icon ) = @_;
+    $config->{_}->{$icon} //= sprintf '~/.config/%s/%s.png', $CONFIG_NAME, $icon;
+
+    if ( !-f $config->{_}->{$icon} ) {
+        printf "Can not find icon '%s'\n", $config->{_}->{$icon};
+        _help();
+    }
+    return $config;
+}
+
+# ------------------------------------------------------------------------------
+sub _lower_keys
+{
+    my ($hash) = @_;
+    for ( keys %{$hash} ) {
+        if ( !/^[[:lower:]]+$/sm ) {
+            $hash->{ lc() } = $hash->{$_};
+            delete $hash->{$_};
+        }
+    }
+    return $hash;
+}
+
 # ------------------------------------------------------------------------------
 sub _check_imap_section
 {
     my ( $config, $section ) = @_;
     my $content = $config->{$section};
-    for ( keys %{$content} ) {
-        if ( !/^[[:lower:]]+$/sm ) {
-            $content->{ lc() } = $content->{$_};
-            delete $content->{$_};
-        }
-    }
+    _lower_keys($content);
     _help( $section, 'Host' )     unless $content->{host};
     _help( $section, 'User' )     unless $content->{user};
     _help( $section, 'Password' ) unless $content->{password};
-    _help( $section, 'Click' )    unless $content->{click};
     _help( $section, 'Mailbox' )  unless $content->{mailbox};
     $content->{mailbox} = [ $content->{mailbox} ]
         unless ref $content->{mailbox} eq 'ARRAY';
@@ -83,21 +113,17 @@ sub _check_imap_section
 sub _usage
 {
     my ($help) = @_;
-    my $pname  = basename $PROGRAM_NAME;
-    my $cname  = $pname;
-    $cname =~ s/[.][^.]*$//sm;
-    my $cdir  = dirname $PROGRAM_NAME;
     my $usage = <<'USAGE';
 Usage: %s [config_file]
 
-If the configuration file is not specified on the command line, it will be searched in:
+If no configuration file is specified on the command line, the first one found will be used:
     ~/.%s
     ~/.%s.conf
     %s/../etc/%s.conf
     %s/../conf/%s.conf
     /etc/%s.conf
 USAGE
-    printf $usage, $pname, $cname, $cname, $cdir, $cname, $cdir, $cname, $cname,;
+    printf $usage, $EXE_NAME, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $CONFIG_NAME;
     return _help();
 }
 
@@ -106,13 +132,19 @@ sub _help
 {
     my ( $section, $value ) = @_;
     printf "No '%s' in section [%s]\n", $value, $section if $section;
-    say <<'HELP';
+    my $help = <<'HELP';
 
-Valid [Icon] section, all fields are required:
+Valid config format:
+
+    # If New/NoNew empty, then the following icons will be used:
+    # ~/.config/%s/new.png 
+    # ~/.config/%s/nonew.png 
     New = /path/to/icon
     NoNew = /path/to/icon
 
-Valid IMAP sections, all fields are required:
+    # Optional 
+    Click = /usr/bin/thunderbird
+    
     [Unique Name]
     Host = IP:PORT
     User = USER
@@ -126,8 +158,10 @@ Valid comments at line start:
     ; comment
     # comment    
     - comment    
+    $ comment    
 
 HELP
+    printf $help, $CONFIG_NAME, $CONFIG_NAME;
     exit 1;
 }
 
