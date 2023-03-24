@@ -27,3 +27,9 @@
 * [bleachbit](https://www.bleachbit.org/)
 
 ![](demo/genmon-disks.png) 
+
+### genmon-imap.pl
+
+Мониторит ящики в IMAP. Подробности по ключу `-h` или `--help`.
+
+![](demo/genmon-imap.png) 
