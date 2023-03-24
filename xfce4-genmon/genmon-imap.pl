@@ -66,32 +66,44 @@ while ( my ( $section, $config ) = each %config ) {
 my $total   = 0;
 my $tooltip = q{};
 
-while ( my ( $imap, $mailboxes ) = each %data ) {
-    $tooltip .= "<span fgcolor='blue' weight='bold'>$imap</span>\n";
+for ( sort keys %data ) {
+
+    my $mailboxes = $data{$_};
+    $tooltip .= sprintf "┌ <span fgcolor='blue' weight='bold'>%s</span>\n", $_;
 
     if ( $mailboxes->{_} ) {
-        $tooltip .= '  <span fgcolor="red">' . $mailboxes->{_} . "</span>\n";
+        $tooltip .= sprintf "└─ <span fgcolor='red'>%s</span>\n", _trim( $mailboxes->{_} );
         next;
     }
 
-    while ( my ( $mailbox, $unseen ) = each %{$mailboxes} ) {
-        $tooltip .= "  $mailbox : ";
+    my @mkeys = sort keys %{$mailboxes};
+    while (@mkeys) {
+        my $mbox   = shift @mkeys;
+        my $tchar  = @mkeys > 0 ? '├─' : '└─';
+        my $unseen = $mailboxes->{$mbox};
         if ( $unseen =~ /^\d+$/sm ) {
             if ($unseen) {
                 $total += $unseen;
-                $tooltip .= "<span weight='bold' fgcolor='green'>$unseen</span>\n";
+                $tooltip .= sprintf "%s <span fgcolor='green'>%s : %u</span>\n", $tchar, $mbox, $unseen;
             }
             else {
-                $tooltip .= "$unseen\n";
+                $tooltip .= sprintf "%s %s : 0\n", $tchar, $mbox;
             }
         }
         else {
-            $tooltip .= "<span fgcolor='red'>$unseen</span>\n";
+            $tooltip .= sprintf "%s <span fgcolor='red'>%s</span>\n", $tchar, _trim($unseen);
         }
     }
 }
 
 printf $TPL, $config{_}->{click}, $total ? $config{_}->{'new'} : $config{_}->{'nonew'}, $tooltip;
+
+# ------------------------------------------------------------------------------
+sub _trim
+{
+    $_[0] =~ s/^\s+|\s+$//sm;
+    return $_[0];
+}
 
 # ------------------------------------------------------------------------------
 sub _check_mailboxes
@@ -162,6 +174,7 @@ sub _check_imap_section
     _help( $section, 'Mailbox' )  unless $content->{mailbox};
     $content->{mailbox} = [ $content->{mailbox} ]
         unless ref $content->{mailbox} eq 'ARRAY';
+    _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
     return $content;
 }
 
