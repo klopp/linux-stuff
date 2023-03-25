@@ -6,7 +6,6 @@ use open qw/:std :utf8/;
 use Modern::Perl;
 
 # ------------------------------------------------------------------------------
-use Carp qw/carp/;
 use Config::Find;
 use Config::Std;
 use Const::Fast;
@@ -64,7 +63,7 @@ for ( sort keys %data ) {
             }
         }
         else {
-            $tooltip .= sprintf "%s <span fgcolor='red'>%s</span>\n", $tchar, _trim($unseen);
+            $tooltip .= sprintf "%s %s : <span fgcolor='red'>%s</span>\n", $tchar, $mbox, _trim($unseen);
         }
     }
 }
@@ -86,7 +85,7 @@ sub _load_config
         read_config expand_tilde($configfile) => %config;
     }
     catch {
-        carp $_;
+        printf "%s\n", _trim($_);
         _help();
     };
 
@@ -159,11 +158,20 @@ sub _check_mailboxes
         return \%mailboxes;
     }
 
+    my $folders = $imap->folders;
+    $_ = Encode::IMAPUTF7::decode( 'IMAP-UTF-7', $_ ) for @{$folders};
     for ( @{ $section->{mailbox} } ) {
-        my $box    = decode_utf8($_);
-        my $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
-        my $error  = $imap->LastError;
-        $mailboxes{$box} = $error ? $error : $unseen;
+        my $box = decode_utf8($_);
+        my $unseen;
+        if ( none { $_ eq $box } @{$folders} ) {
+            $unseen = 'invalid mailbox';
+        }
+        else {
+            $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
+            my $error = $imap->LastError;
+            $error and $unseen = $error;
+        }
+        $mailboxes{$box} = $unseen;
     }
     $imap->logout;
     return \%mailboxes;
@@ -242,7 +250,8 @@ USAGE
     $CONFIG_NAME,
     $EXE_DIR, $CONFIG_NAME,
     $EXE_DIR, $CONFIG_NAME,
-    $CONFIG_NAME;
+    $CONFIG_NAME
+    ;
 #>>V
     return _help();
 }
@@ -255,33 +264,30 @@ sub _help
     CORE::state $HELP = <<'HELP';
 
 Valid config format:
- 
-    New = /path/to/icon
+    # Click is optional. 
+    # NB! With "birdtray" use 'Click = birdtray -s' 
+    Click = /usr/bin/thunderbird
+    New   = /path/to/icon
     NoNew = /path/to/icon
-    #
     # If New/NoNew empty, then the following icons will be used:
-    # ~/.config/%s/new.png 
-    # %s/%s/new.png 
-    # ~/.config/%s/nonew.png
-    # %s/%s/nonew.png 
+    #   ~/.config/%s/new.png 
+    #   %s/%s/new.png 
+    #   ~/.config/%s/nonew.png
+    #   %s/%s/nonew.png 
     #
     # Without path icons will be searched in the same directories:
     # New = google-new.png
-    # => ~/.config/%s/google-new.png 
-    # => %s/%s/google-new.png 
+    #   => ~/.config/%s/google-new.png 
+    #   => %s/%s/google-new.png 
 
-    # Optional: 
-    Click = /usr/bin/thunderbird
-    
     [Unique Name]
-        Host = IP:PORT
-        User = USER
-        Password = PASSWORD
-        Mailbox = INBOX
-        ; There may be several Mailbox fields:
-        Mailbox = Job
-        Mailbox = Friends
-        $...
+      Host     = IP:PORT
+      User     = USER
+      Password = PASSWORD
+      Mailbox  = INBOX
+      Mailbox  = Job
+      Mailbox  = Friends
+      #...
 HELP
 
     printf "Invalid '%s' key in section [%s]\n", $value, $section if $section;
@@ -289,7 +295,7 @@ HELP
     printf $HELP,
 
         $CONFIG_NAME,
-        $CONFIG_NAME, $EXE_DIR,
+        $EXE_DIR, $CONFIG_NAME,
         $CONFIG_NAME,
         $EXE_DIR, $CONFIG_NAME,
 
