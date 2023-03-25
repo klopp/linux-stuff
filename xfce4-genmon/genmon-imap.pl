@@ -17,9 +17,8 @@ use File::Basename;
 use File::Spec;
 use List::Util qw/none/;
 use Mail::IMAPClient;
+use Path::ExpandTilde;
 use Try::Tiny;
-
-use DDP;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
@@ -82,7 +81,7 @@ sub _load_config
     _usage() unless ($configfile);
     my %config;
     try {
-        read_config $configfile => %config;
+        read_config expand_tilde($configfile) => %config;
     }
     catch {
         carp $_;
@@ -188,13 +187,7 @@ sub _check_icon
             unless -f $config->{_}->{$icon};
     }
 
-    $config->{_}->{$icon} =~ s{ ^ ~ ( [^/]* ) }
-              { $1
-                    ? (getpwnam($1))[7]
-                    : ( $ENV{HOME} || $ENV{LOGDIR}
-                         || (getpwuid($>))[7]
-                       )
-    }exsm;
+    $config->{_}->{$icon} = expand_tilde $config->{_}->{$icon};
 
     if ( !-f $config->{_}->{$icon} ) {
         printf "Can not find icon '%s'\n", $config->{_}->{$icon};
