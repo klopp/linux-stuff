@@ -35,11 +35,7 @@ TPL
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
 
 my $cfg = _load_config();
-
-p $cfg;
-exit
-
-    my %data;
+my %data;
 while ( my ( $section, $imap ) = each %{$cfg} ) {
     next if $section eq q{_};
     $data{$section} = _check_mailboxes($imap);
@@ -243,10 +239,10 @@ If no configuration file is specified on the command line, the first one found w
     /etc/%s.conf
 USAGE
 #<<V    
-    printf $USAGE, 
+    printf $USAGE,
 
-    $EXE_NAME, 
-    
+    $EXE_NAME,
+
     $CONFIG_NAME,
     $CONFIG_NAME,
     $EXE_DIR, $CONFIG_NAME,
@@ -295,14 +291,14 @@ HELP
 
     printf "No '%s' in section [%s]\n", $value, $section if $section;
 #<<V    
-    printf $HELP, 
-        
-        $CONFIG_NAME, 
-        $CONFIG_NAME, $EXE_DIR, 
-        $CONFIG_NAME, 
+    printf $HELP,
+
+        $CONFIG_NAME,
+        $CONFIG_NAME, $EXE_DIR,
+        $CONFIG_NAME,
         $EXE_DIR, $CONFIG_NAME,
-        
-        $CONFIG_NAME, 
+
+        $CONFIG_NAME,
         $EXE_DIR, $CONFIG_NAME,
         ;
 #>>V
