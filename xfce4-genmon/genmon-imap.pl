@@ -53,9 +53,9 @@ for ( keys %config ) {
         delete $config{$_};
     }
 }
+$config{_}->{click} //= 'true';
 _check_icon( \%config, 'new' );
 _check_icon( \%config, 'nonew' );
-$config{_}->{click} //= 'true';
 
 my %data;
 while ( my ( $section, $config ) = each %config ) {
@@ -137,10 +137,29 @@ sub _check_mailboxes
 sub _check_icon
 {
     my ( $config, $icon ) = @_;
-    $config->{_}->{$icon} //= sprintf '%s/.config/%s/%s.png', $ENV{HOME}, $CONFIG_NAME, $icon;
-    $config->{_}->{$icon} = File::Spec->rel2abs( $config->{_}->{$icon} );
-    $config->{_}->{$icon} = sprintf '%s/%s/%s.png', $EXE_DIR, $CONFIG_NAME, $icon
-        unless -f $config->{_}->{$icon};
+
+    # 1) No icon, test default files:
+    if ( !$config->{_}->{$icon} ) {
+        $config->{_}->{$icon} = sprintf '%s/.config/%s/%s.png', $ENV{HOME}, $CONFIG_NAME, $icon;
+        $config->{_}->{$icon} = sprintf '%s/%s/%s.png', $EXE_DIR, $CONFIG_NAME, $icon
+            unless -f $config->{_}->{$icon};
+    }
+
+    # 2) File name only, test default locations:
+    elsif ( $config->{_}->{$icon} !~ /\//sm ) {
+        my $iconame = $config->{_}->{$icon};
+        $config->{_}->{$icon} = sprintf '%s/.config/%s/%s', $ENV{HOME}, $CONFIG_NAME, $iconame;
+        $config->{_}->{$icon} = sprintf '%s/%s/%s', $EXE_DIR, $CONFIG_NAME, $iconame
+            unless -f $config->{_}->{$icon};
+    }
+
+    $config->{_}->{$icon} =~ s{ ^ ~ ( [^/]* ) }
+              { $1
+                    ? (getpwnam($1))[7]
+                    : ( $ENV{HOME} || $ENV{LOGDIR}
+                         || (getpwuid($>))[7]
+                       )
+    }exsm;
 
     if ( !-f $config->{_}->{$icon} ) {
         printf "Can not find icon '%s'\n", $config->{_}->{$icon};
@@ -149,7 +168,7 @@ sub _check_icon
     return $config;
 }
 
-# ------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 sub _lower_keys
 {
     my ($hash) = @_;
@@ -177,8 +196,6 @@ sub _check_imap_section
     _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
     return $content;
 }
-
-# ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
 sub _usage
