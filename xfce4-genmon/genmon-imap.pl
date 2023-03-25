@@ -25,10 +25,7 @@ our $VERSION = 'v1.0';
 const my $EXE_NAME    => basename $PROGRAM_NAME;
 const my $EXE_DIR     => File::Spec->rel2abs( dirname $PROGRAM_NAME);
 const my $CONFIG_NAME => $EXE_NAME =~ /^(.*)[.][^.]+$/ms ? $1 : $EXE_NAME;
-const my $TPL         => <<'TPL';
-<click>%s &> /dev/null</click><img>%s</img>
-<tool>%s</tool>
-TPL
+const my $TPL         => '<click>%s &> /dev/null</click><img>%s</img><tool>%s</tool>';
 
 # ------------------------------------------------------------------------------
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
@@ -72,8 +69,13 @@ for ( sort keys %data ) {
     }
 }
 
-printf $TPL, $cfg->{_}->{click}, $total ? $cfg->{_}->{q{new}} : $cfg->{_}->{nonew}, $tooltip;
-
+#<<V
+printf $TPL,
+    $cfg->{_}->{click},
+    $total ? $cfg->{_}->{new} : $cfg->{_}->{nonew},
+    $tooltip
+    ;
+#>>V
 # ------------------------------------------------------------------------------
 sub _load_config
 {
@@ -282,7 +284,7 @@ Valid config format:
         $...
 HELP
 
-    printf "No '%s' in section [%s]\n", $value, $section if $section;
+    printf "Invalid '%s' key in section [%s]\n", $value, $section if $section;
 #<<V    
     printf $HELP,
 
