@@ -15,6 +15,7 @@ use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
 use File::Spec;
+use List::Util qw/none/;
 use Mail::IMAPClient;
 use Try::Tiny;
 
@@ -32,42 +33,18 @@ TPL
 
 # ------------------------------------------------------------------------------
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
-my $configfile = $ARGV[0] ? $ARGV[0] : Config::Find->find;
-_usage() unless ($configfile);
-my %config;
-try {
-    read_config $configfile => %config;
-}
-catch {
-    carp $_;
-    _help();
-};
 
-for ( keys %config ) {
-    if ($_) {
-        _check_imap_section( \%config, $_ );
-    }
-    else {
-        $config{_} = $config{$_};
-        _lower_keys( $config{_} );
-        delete $config{$_};
-    }
-}
-$config{_}->{click} //= 'true';
-_check_icon( \%config, 'new' );
-_check_icon( \%config, 'nonew' );
-
+my $cfg = _load_config();
 my %data;
-while ( my ( $section, $config ) = each %config ) {
+while ( my ( $section, $imap ) = each %{$cfg} ) {
     next if $section eq q{_};
-    $data{$section} = _check_mailboxes($config);
+    $data{$section} = _check_mailboxes($imap);
 }
 
 my $total   = 0;
 my $tooltip = q{};
 
 for ( sort keys %data ) {
-
     my $mailboxes = $data{$_};
     $tooltip .= sprintf "┌ <span fgcolor='blue' weight='bold'>%s</span>\n", $_;
 
@@ -96,7 +73,52 @@ for ( sort keys %data ) {
     }
 }
 
-printf $TPL, $config{_}->{click}, $total ? $config{_}->{'new'} : $config{_}->{'nonew'}, $tooltip;
+printf $TPL, $cfg->{_}->{click}, $total ? $cfg->{_}->{q{new}} : $cfg->{_}->{nonew}, $tooltip;
+
+# ------------------------------------------------------------------------------
+sub _load_config
+{
+    my $configfile = $ARGV[0] ? $ARGV[0] : Config::Find->find;
+    _usage() unless ($configfile);
+    my %config;
+    try {
+        read_config $configfile => %config;
+    }
+    catch {
+        carp $_;
+        _help();
+    };
+
+    for ( keys %config ) {
+        if ($_) {
+            _check_imap_section( \%config, $_ );
+        }
+        else {
+            $config{_} = $config{$_};
+            _lower_keys( $config{_} );
+            delete $config{$_};
+        }
+    }
+    $config{_}->{click} //= 'true';
+    _values_from_array( $config{_}, q{new}, q{nonew}, q{click} );
+    _check_icon( \%config, q{new} );
+    _check_icon( \%config, q{nonew} );
+    return \%config;
+}
+
+# ------------------------------------------------------------------------------
+sub _values_from_array
+{
+    my ( $hash, @keys ) = @_;
+
+    while ( my ( $key, $value ) = each %{$hash} ) {
+        next if none { $_ eq $key } @keys;
+        if ( ref $value eq 'ARRAY' ) {
+            $hash->{$key} = pop @{$value};
+        }
+    }
+    return $hash;
+}
 
 # ------------------------------------------------------------------------------
 sub _trim
@@ -105,16 +127,29 @@ sub _trim
     return $_[0];
 }
 
+#------------------------------------------------------------------------------
+sub _lower_keys
+{
+    my ($hash) = @_;
+    for ( keys %{$hash} ) {
+        if ( !/^[[:lower:]]+$/sm ) {
+            $hash->{ lc() } = $hash->{$_};
+            delete $hash->{$_};
+        }
+    }
+    return $hash;
+}
+
 # ------------------------------------------------------------------------------
 sub _check_mailboxes
 {
-    my ($config) = @_;
+    my ($section) = @_;
 
     my %mailboxes;
     my $imap = Mail::IMAPClient->new(
-        Server   => $config->{host},
-        User     => $config->{user},
-        Password => $config->{password},
+        Server   => $section->{host},
+        User     => $section->{user},
+        Password => $section->{password},
         debug    => 0,
         ssl      => 1,
     );
@@ -123,7 +158,7 @@ sub _check_mailboxes
         return \%mailboxes;
     }
 
-    for ( @{ $config->{mailbox} } ) {
+    for ( @{ $section->{mailbox} } ) {
         my $box    = decode_utf8($_);
         my $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
         my $error  = $imap->LastError;
@@ -168,23 +203,11 @@ sub _check_icon
     return $config;
 }
 
-#------------------------------------------------------------------------------
-sub _lower_keys
-{
-    my ($hash) = @_;
-    for ( keys %{$hash} ) {
-        if ( !/^[[:lower:]]+$/sm ) {
-            $hash->{ lc() } = $hash->{$_};
-            delete $hash->{$_};
-        }
-    }
-    return $hash;
-}
-
 # ------------------------------------------------------------------------------
 sub _check_imap_section
 {
     my ( $config, $section ) = @_;
+
     my $content = $config->{$section};
     _lower_keys($content);
     _help( $section, 'Host' )     unless $content->{host};
@@ -194,6 +217,9 @@ sub _check_imap_section
     $content->{mailbox} = [ $content->{mailbox} ]
         unless ref $content->{mailbox} eq 'ARRAY';
     _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
+
+    _values_from_array( $content, q{host}, q{user}, q{password} );
+
     return $content;
 }
 
