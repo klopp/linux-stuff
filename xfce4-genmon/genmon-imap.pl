@@ -35,7 +35,11 @@ TPL
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
 
 my $cfg = _load_config();
-my %data;
+
+p $cfg;
+exit
+
+    my %data;
 while ( my ( $section, $imap ) = each %{$cfg} ) {
     next if $section eq q{_};
     $data{$section} = _check_mailboxes($imap);
@@ -100,14 +104,14 @@ sub _load_config
         }
     }
     $config{_}->{click} //= 'true';
-    _values_from_array( $config{_}, q{new}, q{nonew}, q{click} );
+    _values_to_scalar( $config{_}, q{new}, q{nonew}, q{click} );
     _check_icon( \%config, q{new} );
     _check_icon( \%config, q{nonew} );
     return \%config;
 }
 
 # ------------------------------------------------------------------------------
-sub _values_from_array
+sub _values_to_scalar
 {
     my ( $hash, @keys ) = @_;
 
@@ -218,7 +222,7 @@ sub _check_imap_section
         unless ref $content->{mailbox} eq 'ARRAY';
     _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
 
-    _values_from_array( $content, q{host}, q{user}, q{password} );
+    _values_to_scalar( $content, q{host}, q{user}, q{password} );
 
     return $content;
 }
@@ -238,7 +242,17 @@ If no configuration file is specified on the command line, the first one found w
     %s/../conf/%s.conf
     /etc/%s.conf
 USAGE
-    printf $USAGE, $EXE_NAME, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $CONFIG_NAME;
+#<<V    
+    printf $USAGE, 
+
+    $EXE_NAME, 
+    
+    $CONFIG_NAME,
+    $CONFIG_NAME,
+    $EXE_DIR, $CONFIG_NAME,
+    $EXE_DIR, $CONFIG_NAME,
+    $CONFIG_NAME;
+#>>V
     return _help();
 }
 
@@ -248,18 +262,24 @@ sub _help
     my ( $section, $value ) = @_;
 
     CORE::state $HELP = <<'HELP';
-Valid config format:
 
-    # If New/NoNew empty, then the following icons will be used:
-    # ~/.config/%s/new.png 
-    # ~/.config/%s/nonew.png
-    # or
-    # %s/%s/new.png 
-    # %s/%s/nonew.png 
+Valid config format:
+ 
     New = /path/to/icon
     NoNew = /path/to/icon
+    #
+    # If New/NoNew empty, then the following icons will be used:
+    # ~/.config/%s/new.png 
+    # %s/%s/new.png 
+    # ~/.config/%s/nonew.png
+    # %s/%s/nonew.png 
+    #
+    # Without path icons will be searched in the same directories:
+    # New = google-new.png
+    # => ~/.config/%s/google-new.png 
+    # => %s/%s/google-new.png 
 
-    # Optional. 
+    # Optional: 
     Click = /usr/bin/thunderbird
     
     [Unique Name]
@@ -274,7 +294,18 @@ Valid config format:
 HELP
 
     printf "No '%s' in section [%s]\n", $value, $section if $section;
-    printf $HELP, $CONFIG_NAME, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME, $EXE_DIR, $CONFIG_NAME;
+#<<V    
+    printf $HELP, 
+        
+        $CONFIG_NAME, 
+        $CONFIG_NAME, $EXE_DIR, 
+        $CONFIG_NAME, 
+        $EXE_DIR, $CONFIG_NAME,
+        
+        $CONFIG_NAME, 
+        $EXE_DIR, $CONFIG_NAME,
+        ;
+#>>V
     exit 1;
 }
 
