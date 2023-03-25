@@ -64,7 +64,7 @@ for ( sort keys %data ) {
             }
         }
         else {
-            $tooltip .= sprintf "%s <span fgcolor='red'>%s</span>\n", $tchar, _trim($unseen);
+            $tooltip .= sprintf "%s %s : <span fgcolor='red'>%s</span>\n", $tchar, $mbox, _trim($unseen);
         }
     }
 }
@@ -159,11 +159,20 @@ sub _check_mailboxes
         return \%mailboxes;
     }
 
+    my @folders = $imap->folders;
+    $_ = Encode::IMAPUTF7::decode( 'IMAP-UTF-7', $_ ) for @folders;
     for ( @{ $section->{mailbox} } ) {
-        my $box    = decode_utf8($_);
-        my $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
-        my $error  = $imap->LastError;
-        $mailboxes{$box} = $error ? $error : $unseen;
+        my $box = decode_utf8($_);
+        my $unseen;
+        if ( none { $_ eq $box } @folders ) {
+            $unseen = 'invalid mailbox';
+        }
+        else {
+            $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
+            my $error = $imap->LastError;
+            $error and $unseen = $error;
+        }
+        $mailboxes{$box} = $unseen;
     }
     $imap->logout;
     return \%mailboxes;
