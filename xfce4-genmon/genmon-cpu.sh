@@ -113,14 +113,7 @@ CPU_IDLE=$((CPU_NOW[4]- CPU_FIRST[4]))
 CPU_USED=$((CPU_DELTA - CPU_IDLE)) 
 PERCENTAGE=$((100 * CPU_USED / CPU_DELTA)) 
 
-TOOLTIP=""
-if (( $((1 + $RANDOM % 10000)) > 500 )); then
-    TOOLTIP=$(sed -r '^$' "${TOOLTIP_FILE}" 2> /dev/null)
-fi
-if [[ -z ${TOOLTIP} ]]; then
-    TOOLTIP=$(get_tooltip)
-    echo -e ${TOOLTIP}> "${TOOLTIP_FILE}"
-fi
+TOOLTIP=$(get_tooltip)
 TOOLTIP+="\n└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%\n"
 
 echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
