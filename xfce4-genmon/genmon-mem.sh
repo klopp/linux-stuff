@@ -12,18 +12,6 @@ PMAX="80"
 GREEN="green"
 
 # ------------------------------------------------------------------------------
-function req
-{
-    while [ $# -gt 0 ]; do
-        if ! hash ${1} &> /dev/null; then
-            echo "No required command: \"${1}\""
-            exit 2
-        fi
-        shift
-    done
-}
-
-# ------------------------------------------------------------------------------
 function usage
 {
     cat << USAGE
@@ -71,8 +59,6 @@ while [ $# -gt 0 ]; do
         ;;
     esac
 done
-
-req "cat" "awk" "cut" "numfmt"
 
 # ------------------------------------------------------------------------------
 TOTAL=$(     cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemTotal:/{print $2}')

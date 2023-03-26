@@ -14,18 +14,6 @@ TMAX="50"
 GREEN="green"
 
 # ------------------------------------------------------------------------------
-function req
-{
-    while [ $# -gt 0 ]; do
-        if ! hash ${1} &> /dev/null; then
-            echo "No required command: \"${1}\""
-            exit 2
-        fi
-        shift
-    done
-}
-    
-# ------------------------------------------------------------------------------
 function usage
 {
     cat << USAGE
@@ -90,8 +78,6 @@ done
 if [ -z "${DEV}" ]; then
     usage
 fi
-
-req "sudo" "df" "awk" "grep" "smartctl" "numfmt"
 
 # ------------------------------------------------------------------------------
 TEMPERATURE=$( check_int $(sudo smartctl -A /dev/sd${DEV} | grep -i temperature | awk '{print $10}') )
