@@ -7,6 +7,7 @@ SELF_DIR=$(basename -- "${0}")
 SELF_DIR=${SELF_DIR%.*}
 CONF_IMG="$HOME/.config/${SELF_DIR%.*}/%s.png"
 SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
+TOOLTIP_FILE="/tmp/${SELF_DIR}.tooltip"
 
 TMAX="90"
 GREEN="green"
@@ -48,6 +49,35 @@ function get_img
 }
 
 # ------------------------------------------------------------------------------
+function get_tooltip
+{
+    local tt="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | uniq | sed -e 's/^[ \t]*//')</span>\n"
+    local all_cpu=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
+    local all_temp=($(cat /sys/class/thermal/thermal_zone*/temp))
+    local temperature=0
+
+    local idx=0
+    for mhz in "${all_cpu[@]}"; do
+        tt+="├─ CPU ${idx}\t\t: ${mhz} MHz\n"
+        (( idx+=1 ))
+    done
+
+    idx=0
+    for temp in "${all_temp[@]}"; do
+        grn="green"
+        (( temp /= 1000 ))
+        if (( "${temp}" > "${TMAX}" )); then
+            grn="red"
+            GREEN="red"
+        fi
+        (( idx+=1 ))
+        tt+="├─ Core ${idx} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
+        (( idx < ${#all_temp[@]} )) && tt+="\n"
+    done
+    echo "${tt}"
+}
+
+# ------------------------------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "${1}" in
         '-t' | '--tmax')
@@ -71,32 +101,30 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-TOOLTIP="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | uniq | sed -e 's/^[ \t]*//')</span>\n"
-ALL_CPU=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
-ALL_TEMP=($(cat /sys/class/thermal/thermal_zone*/temp))
-TEMPERATURE=0
+CPU_FIRST=($(head -n1 /proc/stat)) 
+CPU_FIRST_SUM="${CPU_FIRST[@]:1}" 
+CPU_FIRST_SUM=$((${CPU_FIRST_SUM// /+})) 
+sleep 1
+CPU_NOW=($(head -n1 /proc/stat)) 
+CPU_SUM="${CPU_NOW[@]:1}" 
+CPU_SUM=$((${CPU_SUM// /+})) 
+CPU_DELTA=$((CPU_SUM - CPU_FIRST_SUM)) 
+CPU_IDLE=$((CPU_NOW[4]- CPU_FIRST[4])) 
+CPU_USED=$((CPU_DELTA - CPU_IDLE)) 
+PERCENTAGE=$((100 * CPU_USED / CPU_DELTA)) 
 
-IDX=0
-for mhz in "${ALL_CPU[@]}"; do
-    TOOLTIP+="├─ CPU ${IDX}\t\t: ${mhz} MHz\n"
-    (( IDX+=1 ))
-done
-
-IDX=0
-for temp in "${ALL_TEMP[@]}"; do
-    grn="green"
-    (( temp /= 1000 ))
-    if (( "${temp}" > "${TMAX}" )); then
-        grn="red"
-        GREEN="red"
-    fi
-    (( IDX+=1 ))
-    tchar="├─"
-    (( "${IDX}" >= "${#ALL_TEMP[@]}" )) && tchar="└─" 
-    TOOLTIP+="${tchar} Core ${IDX} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span> ℃\n"
-done
+TOOLTIP=""
+if (( $((1 + $RANDOM % 10000)) > 500 )); then
+    TOOLTIP=$(sed -r '^$' "${TOOLTIP_FILE}" 2> /dev/null)
+fi
+if [[ -z ${TOOLTIP} ]]; then
+    TOOLTIP=$(get_tooltip)
+    echo -e ${TOOLTIP}> "${TOOLTIP_FILE}"
+fi
+TOOLTIP+="\n└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%\n"
 
 echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
+echo -e "<bar>${PERCENTAGE}</bar>"
 echo -e "<tool>${TOOLTIP}</tool>"
 
 # ------------------------------------------------------------------------------
