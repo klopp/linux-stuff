@@ -7,24 +7,19 @@ SELF_DIR=$(basename -- "${0}")
 SELF_DIR=${SELF_DIR%.*}
 CONF_IMG="$HOME/.config/${SELF_DIR%.*}/%s.png"
 SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
+TOOLTIP_FILE="/tmp/${SELF_DIR}.tooltip"
 
-DEV=""
-PART="/home"
-TMAX="50" 
+TMAX="90"
 GREEN="green"
-CLICK="sudo gnome-disks"
+CLICK="xfce4-taskmanager"
 
 # ------------------------------------------------------------------------------
 function usage
 {
     cat << USAGE
 Usage: $(basename "${0}") [options], where options are:
-    -d, --disk
-        Disk letter (REQUIRED, "a" => "/dev/sda", "b" => "/dev/sdb", etc)
-    -p, --part
-        Disk partition (default is "/home")
     -t, --tmax
-        "Red" temperature (Celsius, default is 50)
+        "Red" temperature (Celsius, default is 90)
     -c, --click
         Run on click, default: "${CLICK}"
 USAGE
@@ -54,18 +49,37 @@ function get_img
 }
 
 # ------------------------------------------------------------------------------
+function get_tooltip
+{
+    local tt="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | uniq | sed -e 's/^[ \t]*//')</span>\n"
+    local all_cpu=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
+    local all_temp=($(cat /sys/class/thermal/thermal_zone*/temp))
+    local temperature=0
+
+    local idx=0
+    for mhz in "${all_cpu[@]}"; do
+        tt+="├─ CPU ${idx}\t\t: ${mhz} MHz\n"
+        (( idx+=1 ))
+    done
+
+    idx=0
+    for temp in "${all_temp[@]}"; do
+        grn="green"
+        (( temp /= 1000 ))
+        if (( "${temp}" > "${TMAX}" )); then
+            grn="red"
+            GREEN="red"
+        fi
+        (( idx+=1 ))
+        tt+="├─ Core ${idx} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
+        (( idx < ${#all_temp[@]} )) && tt+="\n"
+    done
+    echo "${tt}"
+}
+
+# ------------------------------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "${1}" in
-        '-d' | '--disk')
-            DEV="${2}"
-            shift 2
-            continue
-        ;;
-        '-p' | '--part')
-            PART="${2}"
-            shift 2
-            continue
-        ;;
         '-t' | '--tmax')
             TMAX=$(check_int "${2}")
             ((${TMAX})) || usage
@@ -86,41 +100,28 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ -z "${DEV}" ]; then
-    usage
-fi
-
 # ------------------------------------------------------------------------------
-TEMPERATURE=$( check_int $(sudo smartctl -A /dev/sd${DEV} | grep -i temperature | awk '{print $10}') )
-if ((${TEMPERATURE} == 0 )); then
-    TEMPERATURE="?"
-    GREEN="red"
-elif [ "${TEMPERATURE}" -gt "${TMAX}" ]; then
-    GREEN="red"
+CPU_FIRST=($(head -n1 /proc/stat)) 
+CPU_FIRST_SUM="${CPU_FIRST[@]:1}" 
+CPU_FIRST_SUM=$((${CPU_FIRST_SUM// /+})) 
+sleep 1
+CPU_NOW=($(head -n1 /proc/stat)) 
+CPU_SUM="${CPU_NOW[@]:1}" 
+CPU_SUM=$((${CPU_SUM// /+})) 
+CPU_DELTA=$((CPU_SUM - CPU_FIRST_SUM)) 
+CPU_IDLE=$((CPU_NOW[4]- CPU_FIRST[4])) 
+CPU_USED=$((CPU_DELTA - CPU_IDLE)) 
+PERCENTAGE=$((100 * CPU_USED / CPU_DELTA)) 
+
+TOOLTIP=""
+if (( $((1 + $RANDOM % 10000)) > 500 )); then
+    TOOLTIP=$(sed -r '^$' "${TOOLTIP_FILE}" 2> /dev/null)
 fi
-
-USED=$(  check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $3}') )
-TOTAL=$( check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $2}') )
-FREE="?"
-
-if (( ${USED} < ${TOTAL} )); then 
-    PERCENTAGE=$(( ${USED} * 100 / ${TOTAL} ))
-    FREE=$(( ${TOTAL} - ${USED} ))
-    TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
-    USED=$(  numfmt --to iec --format "%.2f" $(( ${USED}  * 1024 )) )
-    FREE=$(  numfmt --to iec --format "%.2f" $(( ${FREE}  * 1024 )) )
-else
-    PERCENTAGE="?"
-    TOTAL="?"
-    USED="?"
-    GREEN="red"
+if [[ -z ${TOOLTIP} ]]; then
+    TOOLTIP=$(get_tooltip)
+    echo -e ${TOOLTIP}> "${TOOLTIP_FILE}"
 fi
-
-TOOLTIP="┌ <span weight='bold' fgcolor='blue'>${PART}</span> on <span fgcolor='blue'>/dev/sd${DEV}</span>\n"
-TOOLTIP+="├─ Total\t\t\t: ${TOTAL}\n"
-TOOLTIP+="├─ Used\t\t\t: ${USED}\n"
-TOOLTIP+="├─ Free\t\t\t\t: ${FREE}\n"
-TOOLTIP+="└─ Temperature\t: <span weight='bold' fgcolor='$GREEN'>${TEMPERATURE}</span> ℃"
+TOOLTIP+="\n└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%\n"
 
 echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"

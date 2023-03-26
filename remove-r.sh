@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ------------------------------------------------------------------------------
-readonly QUIET=0
-readonly EXT=(
+QUIET=0
+EXT=(
     "c" "cpp" "h" 
     "p[mly]" "t" "cgi"
     "php" "[it]?html?" "s?css"
