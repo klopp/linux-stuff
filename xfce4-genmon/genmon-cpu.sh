@@ -47,12 +47,11 @@ function get_img
 # ------------------------------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "${1}" in
-        '-p' | '--pmax')
-            shift
-            PMAX=$(check_int "${1}")
-            (( ${PMAX} < 100 && ${PMAX} > 0 )) || usage
-            (( PMAX*=1000 ))
-            shift
+        '-t' | '--tmax')
+            TMAX=$(check_int "${2}")
+            ((${TMAX})) || usage
+            (( TMAX*=1000 ))
+            shift 2
             continue
         ;;
         *)
@@ -62,34 +61,28 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-TEMPERATURE="0"
-
 TOOLTIP="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | sed -n 1p | sed -e 's/^[ \t]*//')</span>\n"
-
 declare -r ALL_CPU=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
+declare -r ALL_TEMP=($(cat /sys/class/thermal/thermal_zone*/temp))
+TEMPERATURE=0
 
 IDX=0
-FREQ=0
 for mhz in "${ALL_CPU[@]}"; do
-    (( FREQ+=mhz ))
-    TOOLTIP+="├─ CPU ${IDX}: ${mhz} MHz\n"
+    TOOLTIP+="├─ CPU ${IDX}\t\t: ${mhz} MHz\n"
     (( IDX+=1 ))
 done
-
-declare -r ALL_TEMP=($(cat /sys/class/thermal/thermal_zone*/temp))
 
 IDX=0
 for temp in "${ALL_TEMP[@]}"; do
     grn="green"
     (( "${temp}" > "${TMAX}" )) && grn="red"
     temp=$( numfmt --to iec --format "%.2f" $(( ${temp} / 1000 )) )
-    TOOLTIP+=" Core ${IDX}: <span weight='bold' fgcolor='${grn}'>${temp}</span> ℃\n"
     (( IDX+=1 ))
-    if [[ ${IDX} -lt ${#ALL_TEMP[@]} ]]; then
-        TOOLTIP="├─"+${TOOLTIP}
-    else
-        TOOLTIP="└─"+${TOOLTIP}
-    fi
+    tchar="├─"
+#    if [[ ${IDX} -ge ${#ALL_TEMP[@]} ]]; then
+#        tchar="└─"
+#    fi
+    TOOLTIP+="${tchar} Core ${IDX} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span> ℃\n"
 done
 
 # vmstat 1 2|tail -1|awk '{print $15}'
@@ -98,8 +91,11 @@ done
 # grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage "%"}'
 # echo "%CPU %MEM ARGS $(date)" && ps -e -o pcpu,pmem,args --sort=pcpu | cut -d" " -f1-5 | tail
 
+PERCENTAGE=$(grep 'cpu ' /proc/stat | awk '{printf "%.2f", ($2+$4)*100/($2+$4+$5)}')
+TOOLTIP+="└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%"
+
 echo -e "<click>xfce4-taskmanager &> /dev/null</click><img>$(get_img)</img>"
-#echo -e "<bar>${PERCENTAGE}</bar>"
+echo -e "<bar>${PERCENTAGE}</bar>"
 echo -e "<tool>${TOOLTIP}</tool>"
 
 # ------------------------------------------------------------------------------
