@@ -10,6 +10,7 @@ SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
 
 PMAX="80"
 GREEN="green"
+CLICK="xfce4-taskmanager"
 
 # ------------------------------------------------------------------------------
 function usage
@@ -18,6 +19,8 @@ function usage
 Usage: $(basename "${0}") [options], where options are:
     -p, --proc
         "Red" used memory percentage (< 100, default is 80)
+    -c, --click
+        Run on click, default: "${CLICK}"
 USAGE
     exit 1
 }
@@ -52,6 +55,14 @@ while [ $# -gt 0 ]; do
             PMAX=$(check_int "${1}")
             (( ${PMAX} < 100 && ${PMAX} > 0 )) || usage
             shift
+            continue
+        ;;
+        '-c' | '--click')
+            if [[ -z "${2}" ]]; then
+                usage
+            fi
+            CLICK="${2}"
+            shift 2
             continue
         ;;
         *)
@@ -94,10 +105,7 @@ TOOLTIP+="\n┌ <span weight='bold'>Swap</span>\n";
 TOOLTIP+="├─ Total\t\t: ${SW_TOTAL}\n"
 TOOLTIP+="└─ Free\t\t\t: ${SW_FREE}"
 
-#IMG=$(get_img)
-#echo ${IMG}
-
-echo -e "<click>xfce4-taskmanager &> /dev/null</click><img>$(get_img)</img>"
+echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
 echo -e "<tool>${TOOLTIP}</tool>"
 

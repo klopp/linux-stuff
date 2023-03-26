@@ -20,7 +20,7 @@ Usage: $(basename "${0}") [options], where options are:
     -t, --tmax
         "Red" temperature (Celsius, default is 90)
     -c, --click
-        Run on click, default: xfce4-taskmanager
+        Run on click, default: "${CLICK}"
 USAGE
     exit 1
 }
@@ -57,10 +57,10 @@ while [ $# -gt 0 ]; do
             continue
         ;;
         '-c' | '--click')
-            CLICK="${2}"
-            if [[ -z "${CLICK}" ]]; then
+            if [[ -z "${2}" ]]; then
                 usage
             fi
+            CLICK="${2}"
             shift 2
             continue
         ;;

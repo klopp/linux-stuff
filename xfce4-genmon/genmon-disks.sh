@@ -12,6 +12,7 @@ DEV=""
 PART="/home"
 TMAX="50" 
 GREEN="green"
+CLICK="sudo gnome-disks"
 
 # ------------------------------------------------------------------------------
 function usage
@@ -24,6 +25,8 @@ Usage: $(basename "${0}") [options], where options are:
         Disk partition (default is "/home")
     -t, --tmax
         "Red" temperature (Celsius, default is 50)
+    -c, --click
+        Run on click, default: "${CLICK}"
 USAGE
     exit 1
 }
@@ -69,6 +72,14 @@ while [ $# -gt 0 ]; do
             shift 2
             continue
         ;;
+        '-c' | '--click')
+            if [[ -z "${2}" ]]; then
+                usage
+            fi
+            CLICK="${2}"
+            shift 2
+            continue
+        ;;
         *)
             usage
         ;;
@@ -86,15 +97,6 @@ if ((${TEMPERATURE} == 0 )); then
     GREEN="red"
 elif [ "${TEMPERATURE}" -gt "${TMAX}" ]; then
     GREEN="red"
-fi
-
-CLICK=""
-if hash gnome-disks &> /dev/null; then
-    CLICK+="gnome-disks"
-elif hash gparted   &> /dev/null; then
-    CLICK+="gparted"
-elif hash bleachbit &> /dev/null; then
-    CLICK+="bleachbit"
 fi
 
 USED=$(  check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $3}') )
