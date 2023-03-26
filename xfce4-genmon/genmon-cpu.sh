@@ -8,8 +8,9 @@ SELF_DIR=${SELF_DIR%.*}
 CONF_IMG="$HOME/.config/${SELF_DIR%.*}/%s.png"
 SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
 
-TMAX="90000"
+TMAX="90"
 GREEN="green"
+CLICK="xfce4-taskmanager"
 
 # ------------------------------------------------------------------------------
 function usage
@@ -18,6 +19,8 @@ function usage
 Usage: $(basename "${0}") [options], where options are:
     -t, --tmax
         "Red" temperature (Celsius, default is 90)
+    -c, --click
+        Run on click, default: xfce4-taskmanager
 USAGE
     exit 1
 }
@@ -50,7 +53,14 @@ while [ $# -gt 0 ]; do
         '-t' | '--tmax')
             TMAX=$(check_int "${2}")
             ((${TMAX})) || usage
-            (( TMAX*=1000 ))
+            shift 2
+            continue
+        ;;
+        '-c' | '--click')
+            CLICK="${2}"
+            if [[ -z "${CLICK}" ]]; then
+                usage
+            fi
             shift 2
             continue
         ;;
@@ -61,9 +71,9 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-TOOLTIP="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | sed -n 1p | sed -e 's/^[ \t]*//')</span>\n"
-declare -r ALL_CPU=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
-declare -r ALL_TEMP=($(cat /sys/class/thermal/thermal_zone*/temp))
+TOOLTIP="┌ <span weight='bold'>$(grep "model name" /proc/cpuinfo | cut -f2 -d ":" | uniq | sed -e 's/^[ \t]*//')</span>\n"
+ALL_CPU=($(awk '/MHz/{print $4}' /proc/cpuinfo | cut -f1 -d"."))
+ALL_TEMP=($(cat /sys/class/thermal/thermal_zone*/temp))
 TEMPERATURE=0
 
 IDX=0
@@ -75,27 +85,18 @@ done
 IDX=0
 for temp in "${ALL_TEMP[@]}"; do
     grn="green"
-    (( "${temp}" > "${TMAX}" )) && grn="red"
-    temp=$( numfmt --to iec --format "%.2f" $(( ${temp} / 1000 )) )
+    (( temp /= 1000 ))
+    if (( "${temp}" > "${TMAX}" )); then
+        grn="red"
+        GREEN="red"
+    fi
     (( IDX+=1 ))
     tchar="├─"
-#    if [[ ${IDX} -ge ${#ALL_TEMP[@]} ]]; then
-#        tchar="└─"
-#    fi
+    (( "${IDX}" >= "${#ALL_TEMP[@]}" )) && tchar="└─" 
     TOOLTIP+="${tchar} Core ${IDX} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span> ℃\n"
 done
 
-# vmstat 1 2|tail -1|awk '{print $15}'
-# cat /proc/stat |grep cpu |tail -1|awk '{print ($5*100)/($2+$3+$4+$5+$6+$7+$8+$9+$10)}'|awk '{print "CPU Usage: " 100-$1}'
-# awk '{u=$2+$4; t=$2+$4+$5; if (NR==1){u1=u; t1=t;} else print ($2+$4-u1) * 100 / (t-t1) "%"; }' <(grep 'cpu ' /proc/stat) <(sleep 1;grep 'cpu ' /proc/stat)
-# grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage "%"}'
-# echo "%CPU %MEM ARGS $(date)" && ps -e -o pcpu,pmem,args --sort=pcpu | cut -d" " -f1-5 | tail
-
-PERCENTAGE=$(grep 'cpu ' /proc/stat | awk '{printf "%.2f", ($2+$4)*100/($2+$4+$5)}')
-TOOLTIP+="└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%"
-
-echo -e "<click>xfce4-taskmanager &> /dev/null</click><img>$(get_img)</img>"
-echo -e "<bar>${PERCENTAGE}</bar>"
+echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
 echo -e "<tool>${TOOLTIP}</tool>"
 
 # ------------------------------------------------------------------------------
