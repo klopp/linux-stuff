@@ -59,7 +59,7 @@ function get_tooltip
     local idx=0
     for mhz in "${all_cpu[@]}"; do
         tt+="├─ CPU ${idx}\t\t: ${mhz} MHz\n"
-        (( idx+=1 ))
+        (( idx++ ))
     done
 
     idx=0
@@ -70,8 +70,8 @@ function get_tooltip
             grn="red"
             GREEN="red"
         fi
-        (( idx+=1 ))
-        tt+="├─ Core ${idx} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
+        (( idx++ ))
+        tt+="├─ Core $((idx-1)) \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
         (( idx < ${#all_temp[@]} )) && tt+="\n"
     done
     echo "${tt}"
@@ -101,16 +101,24 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-CPU_FIRST=($(head -n1 /proc/stat)) 
-CPU_FIRST_SUM="${CPU_FIRST[@]:1}" 
-CPU_FIRST_SUM=$((${CPU_FIRST_SUM// /+})) 
-sleep 1
+read CPU_FIRST_SUM CPU_I0 <<< $( awk '{print $1" "$2}' "${TOOLTIP_FILE}" 2>/dev/null)
+if [[ -z "${CPU_I0}" ]]; then
+    CPU_FIRST=($(head -n1 /proc/stat)) 
+    CPU_FIRST_SUM="${CPU_FIRST[@]:1}" 
+    CPU_I0=$((CPU_FIRST[4]))
+    CPU_FIRST_SUM=$((${CPU_FIRST_SUM// /+}))
+    sleep 1
+fi
+
 CPU_NOW=($(head -n1 /proc/stat)) 
 CPU_SUM="${CPU_NOW[@]:1}" 
 CPU_SUM=$((${CPU_SUM// /+})) 
+echo "${CPU_SUM} ${CPU_NOW[4]}" > "${TOOLTIP_FILE}"
+
 CPU_DELTA=$((CPU_SUM - CPU_FIRST_SUM)) 
-CPU_IDLE=$((CPU_NOW[4]- CPU_FIRST[4])) 
+CPU_IDLE=$((CPU_NOW[4] - CPU_I0))
 CPU_USED=$((CPU_DELTA - CPU_IDLE)) 
+
 PERCENTAGE=$((100 * CPU_USED / CPU_DELTA)) 
 
 TOOLTIP=$(get_tooltip)
