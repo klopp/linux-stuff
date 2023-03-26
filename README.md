@@ -22,7 +22,7 @@
 
 Мониторит процессоры. В тултипе показывает всякое. Если температура кого-то из них больше порога, иконка и прочее зелёное краснеют. При клике по иконке запускает [xfce4-taskmanager](https://docs.xfce.org/apps/xfce4-taskmanager/start) или что прикажут.
 
-![](demo/genmon-cpu.png) 
+![](demo/genmon-cpu.gif) 
 
 ### genmon-disks.sh
 

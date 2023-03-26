@@ -59,7 +59,7 @@ function get_tooltip
     local idx=0
     for mhz in "${all_cpu[@]}"; do
         tt+="├─ CPU ${idx}\t\t: ${mhz} MHz\n"
-        (( idx+=1 ))
+        (( idx++ ))
     done
 
     idx=0
@@ -70,8 +70,8 @@ function get_tooltip
             grn="red"
             GREEN="red"
         fi
-        (( idx+=1 ))
-        tt+="├─ Core ${idx} \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
+        (( idx++ ))
+        tt+="├─ Core $((idx-1)) \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃"
         (( idx < ${#all_temp[@]} )) && tt+="\n"
     done
     echo "${tt}"
