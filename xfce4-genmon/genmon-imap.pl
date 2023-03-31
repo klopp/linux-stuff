@@ -14,7 +14,7 @@ use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
 use File::Spec;
-use List::Util qw/none/;
+use List::MoreUtils qw/none/;
 use Mail::IMAPClient;
 use Path::ExpandTilde;
 use Try::Tiny;
