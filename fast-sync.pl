@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # ------------------------------------------------------------------------------
+use 5.014;
 use utf8::all;
 use open qw/:std :utf8/;
 use Modern::Perl;
@@ -9,6 +10,7 @@ use Modern::Perl;
 use Const::Fast;
 use File::Basename q/fileparse/;
 use File::ChangeNotify;
+use File::Path qw/make_path/;
 use forks;
 use forks::shared;
 use IPC::Run qw/run/;
@@ -17,7 +19,7 @@ use Log::Any::Adapter;
 use Thread::Queue;
 
 # ------------------------------------------------------------------------------
-const my $THREADS => 1;
+const my $THREADS => 4;
 const my %DIRS    => ( '/home/klopp/sdb2/projects' => '/home/klopp/xxx/Google/Backup/projects', );
 const my @EDIRS   => qw/
     epic_links  .idea .git .metadata .sync .settings
@@ -25,15 +27,15 @@ const my @EDIRS   => qw/
     /;
 const my @EFILES => qw/*.o *.bak/;
 
-const my @RKEYS => qw/
+my @RKEYS = qw/
+    -q
     -pvzD
     -I
     --recursive
     --size-only
     --delete
     /;
-my $RSYNC = sprintf q{/usr/bin/rsync %s --exclude="%s" %%s %%s/%%s}, join( q{ }, @RKEYS ),
-    join( '" --exclude="', @EDIRS, @EFILES );
+push @RKEYS, map { sprintf '--exclude="%s"', $_ } @EDIRS, @EFILES;
 
 my @EXCL;
 for (@EDIRS) {
@@ -88,7 +90,7 @@ my $task = threads->new(
 $task->detach;
 
 # ------------------------------------------------------------------------------
-my $tid = 1;
+my $tid = 0;
 for ( 1 .. $THREADS ) {
     ++$tid;
     $task = threads->new(
@@ -121,27 +123,26 @@ for ( 1 .. $THREADS ) {
 
                     if ($skip) {
                         unshift @events, $e;
+                        next;
                     }
-                    else {
-                        $locks{ $e->{name} } = $e->{type};
-                        say sprintf '[%s] "%s" => %s (%s)', $tid, $e->{name}, $e->{event}, $e->{type};
-                        $log->infof( '[%s] "%s" => %s (%s)', $tid, $e->{name}, $e->{event}, $e->{type} );
-                        for ( sort { length $a <=> length $b } keys %DIRS ) {
-                            if ( index( $e->{name}, $_ ) != -1 ) {
-                                my $remote = $e->{name};
-                                $remote =~ s/^$_\///gsm;
-                                my $sync = sprintf $RSYNC, $e->{name}, $DIRS{$_}, $remote;
-                                say $sync;
-                                $log->infof($sync);
-                                my $out_and_err;
-                                $sync = 'true';
-                                run [$sync], '>&', \$out_and_err;
-                                say sprintf '%s', $out_and_err;
-                                $log->infof( '%s', $out_and_err );
-                            }
+                    $locks{ $e->{name} } = $e->{type};
+                    _i( '[%s] "%s" => %s (%s)', $tid, $e->{name}, $e->{event}, $e->{type} );
+                    for ( sort { length $a <=> length $b } keys %DIRS ) {
+                        if ( index( $e->{name}, $_ ) != -1 ) {
+                            my $remote = $e->{name};
+                            $remote =~ s/^$_\///gsm;
+                            my ( undef, $rpath ) = fileparse($remote);
+                            $rpath = sprintf '%s/%s', $DIRS{$_}, $rpath;
+                            _i( 'OK, $rpath: "%s"', $rpath );
+                            make_path($rpath);
+                            my @sync
+                                = ( q{/usr/bin/rsync}, @RKEYS, $e->{name}, sprintf q{%s/%s}, $DIRS{$_}, $remote );
+                            my $err;
+                            run \@sync, sub { }, sub { }, \$err;
+                            $err and _e($err);
                         }
-                        delete $locks{ $e->{name} };
                     }
+                    delete $locks{ $e->{name} };
                 }
                 @events and $q->enqueue(@events);
                 sleep 1;
@@ -154,6 +155,22 @@ for ( 1 .. $THREADS ) {
 # ------------------------------------------------------------------------------
 while (1) {
     sleep 1;
+}
+
+# ------------------------------------------------------------------------------
+sub _i
+{
+    my ( $fmt, @args ) = @_;
+    say sprintf $fmt, @args;
+    $log->infof( $fmt, @args );
+}
+
+# ------------------------------------------------------------------------------
+sub _e
+{
+    my (@args) = @_;
+    say sprintf 'ERROR: %s', @args;
+    $log->errorf(@args);
 }
 
 # ------------------------------------------------------------------------------
