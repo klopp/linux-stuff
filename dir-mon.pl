@@ -22,7 +22,7 @@ my ( $last_access, $pid, $stdout );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
 my $inotifywait = which 'inotifywait';
-unless ($inotifywait) {
+if ( !$inotifywait ) {
     say "\nNo required 'inotifywait' executable found!";
     exit 1;
 }
@@ -92,7 +92,7 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-    alarm 60;
+    return alarm 60;
 }
 
 # ------------------------------------------------------------------------------
