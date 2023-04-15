@@ -124,6 +124,9 @@ Usage: %s [options], where options are:
    -dry-run           do not run executable, print command line only
    -x, -exit          exit after execute (default: reset timeout)
 
+WARNING! 
+Always use -x key if the directory will be unmounted by executable call.
+
    *
         __PATH__ substring will be rplaced by "-p" value
         __HOME__ substring will be rplaced by $HOME value
@@ -142,9 +145,6 @@ umount.sh example:
         echo -e "\nDirectory $1 used by:\n\n$(ps --no-headers -o command -p ${LSOF})"
     fi
 
-WARNING! 
-Always use -x key if the directory will be unmounted by executable call.
-
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, basename($PROGRAM_NAME);
     exit 1;
@@ -155,7 +155,7 @@ sub _term
 {
     if ($ipid) {
         killfam 'TERM', ($ipid);
-        while ( ( my $kidpid = waitpid( -1, WNOHANG ) ) > 0 ) {
+        while ( ( my $kidpid = waitpid -1, WNOHANG ) > 0 ) {
             sleep 1;
         }
     }
