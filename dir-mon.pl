@@ -17,7 +17,7 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-our $VERSION = 'v1.0';
+our $VERSION = 'v1.01';
 my ( $last_access, $pid, $stdout );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
