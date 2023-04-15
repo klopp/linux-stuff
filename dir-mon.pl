@@ -17,12 +17,12 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-our $VERSION = 'v1.0';
+our $VERSION = 'v1.01';
 my ( $last_access, $pid, $stdout );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
 my $inotifywait = which 'inotifywait';
-unless ($inotifywait) {
+if ( !$inotifywait ) {
     say "\nNo required 'inotifywait' executable found!";
     exit 1;
 }
@@ -40,6 +40,12 @@ GetOptions(
 );
 ( $EXEC && $PATH && -d $PATH && $TIMEOUT && $TIMEOUT =~ /^\d+$/sm ) or _usage();
 
+my @EXECUTABLE = quotewords( '\s+', 1, $EXEC );
+for (@EXECUTABLE) {
+    s/__PATH__/"$PATH"/gsm;
+    s/__HOME__/$ENV{HOME}/gsm;
+}
+
 # ------------------------------------------------------------------------------
 capture_stderr {
     $pid = open2( $stdout, undef, sprintf '%s -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"',
@@ -52,10 +58,18 @@ alarm 60;
 
 while (<$stdout>) {
 
-    next unless /^(\d{4})[-](\d\d)[-](\d\d) (\d\d):(\d\d):(\d\d)\s+(.+)\s+\[(.+)\]/sm;
+    next unless m{^
+        (\d{4})[-](\d\d)[-](\d\d)
+        \s+
+        (\d\d):(\d\d):(\d\d)
+        \s+
+        (.*)
+        \s+
+        \[(.+)\]
+    }xsm;
 
     my $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
-    $DEBUG and printf "[%04d-%02d-%02d %02d:%02d:%02d] %s %s\n", $1, $2, $3, $4, $5, $6, $7, $8;
+    $DEBUG and printf "[%04d-%02d-%02d %02d:%02d:%02d] %s {%s}\n", $1, $2, $3, $4, $5, $6, $7, $8;
     _check_access_time( undef, $taccess );
 }
 
@@ -69,11 +83,8 @@ sub _check_access_time
         $QUIET or printf "No activity: %u sec\n", $tdiff;
         if ( $tdiff >= $TIMEOUT ) {
             $QUIET or print "Timeout!\n";
-            my @eparts = quotewords( '\s+', 1, $EXEC );
-            $_ =~ s/__PATH__/"$PATH"/gsm    for @eparts;
-            $_ =~ s/__HOME__/$ENV{HOME}/gsm for @eparts;
-            ( $DEBUG or $DRY ) and printf "{run}\n> %s\n", ( join "\n> ", @eparts );
-            $DRY or run \@eparts, sub { }, sub { }, sub { };
+            ( $DEBUG or $DRY ) and printf "{run}\n> %s\n", ( join "\n> ", @EXECUTABLE );
+            $DRY or run \@EXECUTABLE, sub { }, sub { }, sub { };
             $EXIT and exit;
             $last_access = time;
         }
@@ -81,7 +92,7 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-    alarm 60;
+    return alarm 60;
 }
 
 # ------------------------------------------------------------------------------
@@ -115,7 +126,7 @@ USAGE
 
 # ------------------------------------------------------------------------------
 END {
-    $pid and waitpid( $pid, 0 );
+    $pid and waitpid $pid, 0;
 }
 
 # ------------------------------------------------------------------------------
