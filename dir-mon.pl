@@ -14,7 +14,6 @@ use IPC::Open2;
 use IPC::Run qw/run/;
 use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
-use POSIX qw/strftime/;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
