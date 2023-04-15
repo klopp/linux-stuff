@@ -6,24 +6,30 @@ use open qw/:std :utf8/;
 use Modern::Perl;
 
 # ------------------------------------------------------------------------------
-use Capture::Tiny qw/capture_stderr/;
+use Const::Fast;
 use English qw/-no_match_vars/;
 use File::Basename qw/basename/;
 use File::Which;
 use Getopt::Long qw/GetOptions/;
 use IPC::Open2;
 use IPC::Run qw/run/;
+use POSIX qw/:sys_wait_h/;
+use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
+const my $INTERVAL => 30;
+const my $INOTYFY  => 'inotifywait';
 our $VERSION = 'v1.01';
-my ( $last_access, $pid, $stdout );
+
+# ------------------------------------------------------------------------------
+my ( $last_access, $ipid );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
-my $inotifywait = which 'inotifywait';
+my $inotifywait = which $INOTYFY;
 if ( !$inotifywait ) {
-    say "\nNo required 'inotifywait' executable found!";
+    say "\nNo required '$INOTYFY' executable found!";
     exit 1;
 }
 
@@ -47,14 +53,18 @@ for (@EXECUTABLE) {
 }
 
 # ------------------------------------------------------------------------------
-capture_stderr {
-    $pid = open2( $stdout, undef, sprintf '%s -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"',
-        $inotifywait, $PATH );
-};
-
 local $SIG{ALRM} = \&_check_access_time;
+local $SIG{TERM} = \&_term;
+local $SIG{QUIT} = \&_term;
+local $SIG{USR1} = \&_term;
+local $SIG{USR1} = \&_term;
+local $SIG{HUP}  = \&_term;
+local $SIG{INT}  = \&_term;
 $last_access = time;
-alarm 60;
+alarm $INTERVAL;
+
+$ipid = open2( my $stdout, undef, sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"',
+    $inotifywait, $PATH );
 
 while (<$stdout>) {
 
@@ -84,15 +94,18 @@ sub _check_access_time
         if ( $tdiff >= $TIMEOUT ) {
             $QUIET or print "Timeout!\n";
             ( $DEBUG or $DRY ) and printf "{run}\n> %s\n", ( join "\n> ", @EXECUTABLE );
-            $DRY or run \@EXECUTABLE, sub { }, sub { }, sub { };
-            $EXIT and exit;
+            my ( $out, $err );
+            $DRY or run \@EXECUTABLE, sub { }, \$out, \$err;
+            $out  and print $out;
+            $err  and print $err;
+            $EXIT and _term();
             $last_access = time;
         }
         else {
             $taccess and $last_access = $taccess;
         }
     }
-    return alarm 60;
+    return alarm $INTERVAL;
 }
 
 # ------------------------------------------------------------------------------
@@ -115,18 +128,43 @@ Usage: %s [options], where options are:
         __PATH__ substring will be rplaced by "-p" value
         __HOME__ substring will be rplaced by $HOME value
 
-Example:
+Run example:
 
-    %s -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
-    
+    %s -x -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
+
+umount.sh example:
+
+    #!/bin/bash
+    LSOF=$(lsof "$1" | awk 'NR>1 {print $2}' | sort -n | uniq)
+    if [[ -z "$LSOF" ]]; then
+        sudo umount -l "$1"
+    else
+        echo -e "\nDirectory $1 used by:\n\n$(ps --no-headers -o command -p ${LSOF})"
+    fi
+
+WARNING! 
+Always use -x key if the directory will be unmounted by executable call.
+
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, basename($PROGRAM_NAME);
     exit 1;
 }
 
 # ------------------------------------------------------------------------------
+sub _term
+{
+    if ($ipid) {
+        killfam 'TERM', ($ipid);
+        while ( ( my $kidpid = waitpid( -1, WNOHANG ) ) > 0 ) {
+            sleep 1;
+        }
+    }
+    exit;
+}
+
+# ------------------------------------------------------------------------------
 END {
-    $pid and waitpid $pid, 0;
+    _term();
 }
 
 # ------------------------------------------------------------------------------
