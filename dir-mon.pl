@@ -21,10 +21,6 @@ our $VERSION = 'v1.0';
 my ( $last_access, $pid, $stdout );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
-#my $taccess = timelocal_posix( 0, 1, 13, 15, 4, 2023 );
-#say strftime( '%R:%S', localtime $taccess );
-#exit;
-
 # ------------------------------------------------------------------------------
 GetOptions(
     'p|path=s'    => \$PATH,
