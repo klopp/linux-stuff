@@ -9,6 +9,7 @@ use Modern::Perl;
 use Capture::Tiny qw/capture_stderr/;
 use English qw/-no_match_vars/;
 use File::Basename qw/basename/;
+use File::Which;
 use Getopt::Long qw/GetOptions/;
 use IPC::Open2;
 use IPC::Run qw/run/;
@@ -19,6 +20,12 @@ use Time::Local qw/timelocal_posix/;
 our $VERSION = 'v1.0';
 my ( $last_access, $pid, $stdout );
 my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
+
+my $inotifywait = which 'inotifywait';
+unless ($inotifywait) {
+    say "\nNo required 'inotifywait' executable found!";
+    exit 1;
+}
 
 # ------------------------------------------------------------------------------
 GetOptions(
@@ -35,9 +42,8 @@ GetOptions(
 
 # ------------------------------------------------------------------------------
 capture_stderr {
-    $pid
-        = open2( $stdout, undef,
-        sprintf 'inotifywait -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $PATH );
+    $pid = open2( $stdout, undef, sprintf '%s -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"',
+        $inotifywait, $PATH );
 };
 
 local $SIG{ALRM} = \&_check_access_time;
