@@ -14,8 +14,8 @@ use File::Basename qw/basename/;
 use File::Which;
 use Getopt::Long qw/GetOptions/;
 use IPC::Open2;
-use IPC::Run qw/run/;
-use POSIX qw/:sys_wait_h strftime/;
+use IPC::Run qw/run harness start/;
+use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
@@ -25,11 +25,11 @@ const my $INTERVAL => 30;
 const my $INOTYFY  => 'inotifywait';
 const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
 const my $RX_TIME  => '(\d\d):(\d\d):(\d\d)';
-our $VERSION = 'v1.01';
+our $VERSION = 'v1.02';
 
 # ------------------------------------------------------------------------------
-my ( $last_access, $ipid );
-my ( $TIMEOUT, $PATH, $EXEC, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
+my ( $cpid, $last_access, $ipid );
+my ( $TIMEOUT, $PATH, $EXEC, $FORK, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
 
 my $inotifywait = which $INOTYFY;
 if ( !$inotifywait ) {
@@ -42,11 +42,13 @@ GetOptions(
     'p|path=s'    => \$PATH,
     't|timeout=i' => \$TIMEOUT,
     'e|exec=s'    => \$EXEC,
+    'f|fork'      => \$FORK,
     'dry-run'     => \$DRY,
-    'x|exit'      => \$EXIT,
     'q|quiet'     => \$QUIET,
     'd|debug'     => \$DEBUG,
     'h|?|help'    => \&_usage,
+    'x|exit'      => sub { $EXIT = 1 },
+    'xx'          => sub { $EXIT = 2 },
 );
 ( $EXEC && $PATH && -d $PATH && $TIMEOUT && $TIMEOUT =~ /^\d+$/sm ) or _usage();
 
@@ -56,24 +58,34 @@ for (@EXECUTABLE) {
     s/__HOME__/$ENV{HOME}/gsm;
 }
 
-my $cpid = fork;
-exit if $cpid;
-$cpid = fork;
-exit if $cpid;
+if ($FORK) {
+    _log( q{!}, 'Start deamonized...' );
+    $cpid = fork;
+    exit if $cpid;
+    setsid;
+    $cpid = fork;
+    exit if $cpid;
+    umask 0;
+    chdir q{/};
+}
+else {
+    _log( q{!}, 'Start...' );
+}
 
 # ------------------------------------------------------------------------------
-local $SIG{ALRM} = \&_check_access_time;
-local $SIG{TERM} = \&_term;
-local $SIG{QUIT} = \&_term;
-local $SIG{USR1} = \&_term;
-local $SIG{USR1} = \&_term;
-local $SIG{HUP}  = \&_term;
-local $SIG{INT}  = \&_term;
+local $OUTPUT_AUTOFLUSH = 1;
+local $SIG{ALRM}        = \&_check_access_time;
+local $SIG{TERM}        = \&_sig_x;
+local $SIG{QUIT}        = \&_sig_x;
+local $SIG{USR1}        = \&_sig_x;
+local $SIG{USR1}        = \&_sig_x;
+local $SIG{HUP}         = \&_sig_x;
+local $SIG{INT}         = \&_sig_x;
 $last_access = time;
 alarm $INTERVAL;
 
 my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $PATH;
-_d( 'Run %s...', $icmd );
+_i( 'Run %s...', $icmd );
 $ipid = open2( my $stdout, undef, $icmd );
 
 while (<$stdout>) {
@@ -100,17 +112,38 @@ sub _check_access_time
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
-        _i( 'No activity for %u sec', $tdiff );
+        _i( 'No activity for %u sec.', $tdiff );
         if ( $tdiff >= $TIMEOUT ) {
             _i('Timeout!');
-            ( $DEBUG or $DRY ) and _log( "{run}\n> %s", ( join "\n> ", @EXECUTABLE ) );
-            my ( $out, $err );
-            $DRY or run \@EXECUTABLE, sub { }, \$out, \$err;
-            $out  and _log( '%s', _trim($out) );
-            $err  and _log( '%s', _trim($err) );
-            $EXIT and _term();
-
-            #            kill HUP => $ipid;
+            if ( $DEBUG or $DRY ) {
+                _log( q{!}, 'Run %s...', join q{ }, @EXECUTABLE );
+            }
+            else {
+                _i( 'Run %s...', join q{ }, @EXECUTABLE );
+            }
+            my ( $rc, $out, $err ) = (-1);
+            if ( !$DRY ) {
+                my $h = start \@EXECUTABLE, sub { }, \$out, \$err;
+                $h->finish;
+                $rc = $h->full_result;
+            }
+            $out and _i( '%s', _trim($out) );
+            $err and _i( '%s', _trim($err) );
+            if ($EXIT) {
+                if ( $EXIT == 1 ) {
+                    if ($rc) {
+                        _i('External process return FAIL, reset timeout...');
+                    }
+                    else {
+                        _i('External process return OK.');
+                        exit;
+                    }
+                }
+                else {
+                    _i('External process finished.');
+                    exit;
+                }
+            }
             $last_access = time;
         }
         else {
@@ -131,13 +164,15 @@ Usage: %s [options], where options are:
    -p, -path    PATH  directory to watch (required, see *)
    -t, -timeout SEC   activity timeout (seconds, default: %u)
    -e, -exec    PATH  execute on activity timeout (required, see *)
+   -f, -fork          fork and daemonize (STDOUT & STDERR must be redirected)
    -q, -quiet         be quiet
    -d, -debug         print debug info
    -dry-run           do not run executable, print command line only
-   -x, -exit          exit after execute (default: reset timeout)
+   -x, -exit          exit after SUCCESS external process (-e) result
+   -xx                exit after ANY external process result 
 
 WARNING! 
-Always use -x key if the directory will be unmounted by executable call.
+Always use -x or -xx if the directory will be unmounted by executable call.
 
    *
         __PATH__ substring will be rplaced by "-p" value
@@ -153,20 +188,21 @@ USAGE
 }
 
 # ------------------------------------------------------------------------------
-sub _term
+sub _sig_x
 {
+    _i( 'Got signal "%s".', shift );
+    exit;
+}
+
+# ------------------------------------------------------------------------------
+END {
+    $cpid or _log( q{!}, 'Stop all jobs and exit...' );
     if ($ipid) {
         killfam 'TERM', ($ipid);
         while ( ( my $kidpid = waitpid -1, WNOHANG ) > 0 ) {
             sleep 1;
         }
     }
-    exit;
-}
-
-# ------------------------------------------------------------------------------
-END {
-    _term();
 }
 
 # ------------------------------------------------------------------------------
@@ -184,20 +220,20 @@ sub _t
 # ------------------------------------------------------------------------------
 sub _log
 {
-    my ( $fmt, @arg ) = @_;
-    return printf "%s %s\n", _t(), sprintf $fmt, @arg;
+    my ( $pfx, $fmt, @arg ) = @_;
+    return printf "[%s] %s %s\n", $pfx, _t(), sprintf $fmt, @arg;
 }
 
 # ------------------------------------------------------------------------------
 sub _i
 {
-    $QUIET or _log(@_);
+    $QUIET or _log( q{-}, @_ );
 }
 
 # ------------------------------------------------------------------------------
 sub _d
 {
-    $DEBUG and _log(@_);
+    $DEBUG and _log( q{*}, @_ );
 }
 
 # ------------------------------------------------------------------------------
