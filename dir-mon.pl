@@ -69,7 +69,6 @@ if ($FORK) {
     umask 0;
     chdir q{/};
     close *{STDIN};
-    *{STDERR} = *{STDOUT};
 }
 else {
     _log( q{!}, 'Start...' );
