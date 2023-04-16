@@ -9,6 +9,7 @@ use warnings;
 
 # ------------------------------------------------------------------------------
 use Const::Fast;
+use Digest::MD5 qw/md5_hex/;
 use English qw/-no_match_vars/;
 use File::Basename qw/basename/;
 use File::Which;
@@ -21,15 +22,22 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-const my $INOTYFY => 'inotifywait';
-const my $RX_DATE => '(\d{4})[-](\d\d)[-](\d\d)';
-const my $RX_TIME => '(\d\d):(\d\d):(\d\d)';
 our $VERSION = 'v1.02';
+const my $EXE_NAME => basename($PROGRAM_NAME);
+const my $INOTYFY  => 'inotifywait';
+const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
+const my $RX_TIME  => '(\d\d):(\d\d):(\d\d)';
 
 # ------------------------------------------------------------------------------
 my ( $cpid, $last_access, $ipid );
-my ( $TIMEOUT, $INTERVAL, $PATH, $EXEC, $FORK, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10, 30 );
+my %opt = (
+    timeout  => ( 60 * 10 ),
+    interval => 30,
+    lock     => '/var/lock',
+);
 
+#my ( $TIMEOUT, $INTERVAL, $LOCKDIR, $PATH, $EXEC, $FORK, $REPLACE, $QUIET, $DEBUG, $EXIT, $DRY )
+#    = ( 60 * 10, 30, '/var/lock' );
 my $inotifywait = which $INOTYFY;
 if ( !$inotifywait ) {
     print "No required '$INOTYFY' executable found!\n";
@@ -38,28 +46,31 @@ if ( !$inotifywait ) {
 
 # ------------------------------------------------------------------------------
 GetOptions(
-    'p|path=s'     => \$PATH,
-    't|timeout=i'  => \$TIMEOUT,
-    'i|interval=i' => \$INTERVAL,
-    'e|exec=s'     => \$EXEC,
-    'f|fork'       => \$FORK,
-    'dry-run'      => \$DRY,
-    'q|quiet'      => \$QUIET,
-    'd|debug'      => \$DEBUG,
-    'h|?|help'     => \&_usage,
-    'x|exit'       => sub { $EXIT = 1 },
-    'xx'           => sub { $EXIT = 2 },
+    \%opt,    'path|p=s',    'timeout|t=i', 'interval|i=i', 'exec|e=s', 'fork|f',
+    'lock|l', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
+    'xx',
 );
-( $EXEC && $PATH && -d $PATH && $TIMEOUT && $TIMEOUT =~ /^\d+$/sm && $INTERVAL && $INTERVAL =~ /^\d+$/sm )
+(          ( $opt{lock} && -d $opt{lock} )
+        && $opt{exec}
+        && -x $opt{exec}
+        && $opt{path}
+        && -d $opt{path}
+        && $opt{timeout}
+        && $opt{timeout} =~ /^\d+$/sm
+        && $opt{interval}
+        && $opt{interval} =~ /^\d+$/sm )
     or _usage();
 
-my @EXECUTABLE = quotewords( '\s+', 1, $EXEC );
+my @EXECUTABLE = quotewords( '\s+', 1, $opt{exec} );
 for (@EXECUTABLE) {
-    s/__PATH__/"$PATH"/gsm;
+    s/__PATH__/"$opt{path}"/gsm;
     s/__HOME__/$ENV{HOME}/gsm;
 }
 
-if ($FORK) {
+const my $LOCKFILE => sprintf '%s/%s.%s', $opt{lock}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
+_check_self_instance();
+
+if ( $opt{fork} ) {
     _log( q{!}, 'Start deamonized...' );
     $cpid = fork;
     exit if $cpid;
@@ -69,9 +80,11 @@ if ($FORK) {
     umask 0;
     chdir q{/};
     close *{STDIN};
+    _create_lock_file();
 }
 else {
     _log( q{!}, 'Start...' );
+    _create_lock_file();
 }
 
 # ------------------------------------------------------------------------------
@@ -84,9 +97,9 @@ local $SIG{USR1}        = \&_sig_x;
 local $SIG{HUP}         = \&_sig_x;
 local $SIG{INT}         = \&_sig_x;
 $last_access = time;
-alarm $INTERVAL;
+alarm $opt{interval};
 
-my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $PATH;
+my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $opt{path};
 _i( 'Run %s...', $icmd );
 $ipid = open2( my $stdout, undef, $icmd );
 
@@ -115,24 +128,24 @@ sub _check_access_time
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
         _d( 'No activity for %u sec.', $tdiff );
-        if ( $tdiff >= $TIMEOUT ) {
+        if ( $tdiff >= $opt{timeout} ) {
             _i( 'Timeout :: %u seconds!', $tdiff );
-            if ( $DEBUG or $DRY ) {
+            if ( $opt{debug} or $opt{dry} ) {
                 _log( q{!}, 'Run %s...', join q{ }, @EXECUTABLE );
             }
             else {
                 _i( 'Run %s...', join q{ }, @EXECUTABLE );
             }
             my ( $rc, $out, $err ) = (-1);
-            if ( !$DRY ) {
+            if ( !$opt{dry} ) {
                 my $h = start \@EXECUTABLE, sub { }, \$out, \$err;
                 $h->finish;
                 $rc = $h->full_result;
             }
             $out and _i( '%s', _trim($out) );
             $err and _i( '%s', _trim($err) );
-            if ($EXIT) {
-                if ( $EXIT == 1 ) {
+            if ( $opt{x} || $opt{xx} ) {
+                if ( !$opt{xx} ) {
                     if ($rc) {
                         _i('External process return FAIL, reset timeout...');
                     }
@@ -152,7 +165,7 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-    return alarm $INTERVAL;
+    return alarm $opt{interval};
 }
 
 # ------------------------------------------------------------------------------
@@ -168,9 +181,10 @@ Usage: %s [options], where options are:
     -i, -interval SEC   poll interval (seconds, default: %u)
     -e, -exec     PATH  execute on activity timeout (required, see *)
     -f, -fork           fork and daemonize, STDOUT (not STDERR) must be redirected
+    -l, -lock           lock file directory, default: %s
     -q, -quiet          be quiet
     -d, -debug          print debug info
-    -dry-run            do not run executable, print command line only
+    -dry, dry-run       do not run executable, print command line only
     -x, -exit           exit after SUCCESS external process (-e) result (**)
     -xx                 exit after ANY external process result (**)
 
@@ -194,7 +208,8 @@ umount.sh example:
     fi
 
 USAGE
-    printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, $INTERVAL, basename($PROGRAM_NAME);
+    printf $USAGE, $EXE_NAME, $opt{timeout}, $opt{interval}, $opt{lock}, $EXE_NAME;
+
     # supress exit message:
     $cpid = $PID;
     exit 1;
@@ -205,6 +220,35 @@ sub _sig_x
 {
     _i( 'Got signal "%s".', shift );
     exit;
+}
+
+# ------------------------------------------------------------------------------
+sub _create_lock_file
+{
+    my $ph;
+    if ( !open $ph, q{>}, $LOCKFILE ) {
+        _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
+        exit 1;
+    }
+    print $ph "$PID\n";
+    close $ph;
+    return $PID;
+}
+
+# ------------------------------------------------------------------------------
+sub _check_self_instance
+{
+    my $pid;
+    if ( open my $ph, q{<}, $LOCKFILE ) {
+        $pid = <$ph>;
+        close $ph;
+    }
+
+    if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
+        _log( q{!}, 'Active instance (PID: %s) found!', $pid );
+        exit 1;
+    }
+    return;
 }
 
 # ------------------------------------------------------------------------------
@@ -221,7 +265,9 @@ END {
 # ------------------------------------------------------------------------------
 sub _trim
 {
-    return $_[0] =~ s/^\s+|\s+$//gsmr;
+    my ($s) = @_;
+    $s =~ s/^\s+|\s+$//gsm;
+    return $s;
 }
 
 # ------------------------------------------------------------------------------
@@ -240,13 +286,13 @@ sub _log
 # ------------------------------------------------------------------------------
 sub _i
 {
-    $QUIET or _log( q{-}, @_ );
+    $opt{quiet} or _log( q{-}, @_ );
 }
 
 # ------------------------------------------------------------------------------
 sub _d
 {
-    $DEBUG and _log( q{*}, @_ );
+    $opt{debug} and _log( q{*}, @_ );
 }
 
 # ------------------------------------------------------------------------------
