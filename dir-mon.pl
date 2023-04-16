@@ -179,7 +179,7 @@ Usage: %s [options], where options are:
 
 Example:
 
-    %s -x -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
+    %s -x -q -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
 
 umount.sh example:
 
