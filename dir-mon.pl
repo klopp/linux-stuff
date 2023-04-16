@@ -114,9 +114,9 @@ sub _check_access_time
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
-        _i( 'No activity for %u sec.', $tdiff );
+        _d( 'No activity for %u sec.', $tdiff );
         if ( $tdiff >= $TIMEOUT ) {
-            _i('Timeout!');
+            _i( 'Timeout :: %u seconds!', $tdiff );
             if ( $DEBUG or $DRY ) {
                 _log( q{!}, 'Run %s...', join q{ }, @EXECUTABLE );
             }
