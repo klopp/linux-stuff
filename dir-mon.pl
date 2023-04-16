@@ -21,15 +21,14 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-const my $INTERVAL => 30;
-const my $INOTYFY  => 'inotifywait';
-const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
-const my $RX_TIME  => '(\d\d):(\d\d):(\d\d)';
+const my $INOTYFY => 'inotifywait';
+const my $RX_DATE => '(\d{4})[-](\d\d)[-](\d\d)';
+const my $RX_TIME => '(\d\d):(\d\d):(\d\d)';
 our $VERSION = 'v1.02';
 
 # ------------------------------------------------------------------------------
 my ( $cpid, $last_access, $ipid );
-my ( $TIMEOUT, $PATH, $EXEC, $FORK, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10 );
+my ( $TIMEOUT, $INTERVAL, $PATH, $EXEC, $FORK, $QUIET, $DEBUG, $EXIT, $DRY ) = ( 60 * 10, 30 );
 
 my $inotifywait = which $INOTYFY;
 if ( !$inotifywait ) {
@@ -39,18 +38,20 @@ if ( !$inotifywait ) {
 
 # ------------------------------------------------------------------------------
 GetOptions(
-    'p|path=s'    => \$PATH,
-    't|timeout=i' => \$TIMEOUT,
-    'e|exec=s'    => \$EXEC,
-    'f|fork'      => \$FORK,
-    'dry-run'     => \$DRY,
-    'q|quiet'     => \$QUIET,
-    'd|debug'     => \$DEBUG,
-    'h|?|help'    => \&_usage,
-    'x|exit'      => sub { $EXIT = 1 },
-    'xx'          => sub { $EXIT = 2 },
+    'p|path=s'     => \$PATH,
+    't|timeout=i'  => \$TIMEOUT,
+    'i|interval=i' => \$INTERVAL,
+    'e|exec=s'     => \$EXEC,
+    'f|fork'       => \$FORK,
+    'dry-run'      => \$DRY,
+    'q|quiet'      => \$QUIET,
+    'd|debug'      => \$DEBUG,
+    'h|?|help'     => \&_usage,
+    'x|exit'       => sub { $EXIT = 1 },
+    'xx'           => sub { $EXIT = 2 },
 );
-( $EXEC && $PATH && -d $PATH && $TIMEOUT && $TIMEOUT =~ /^\d+$/sm ) or _usage();
+( $EXEC && $PATH && -d $PATH && $TIMEOUT && $TIMEOUT =~ /^\d+$/sm && $INTERVAL && $INTERVAL =~ /^\d+$/sm )
+    or _usage();
 
 my @EXECUTABLE = quotewords( '\s+', 1, $EXEC );
 for (@EXECUTABLE) {
@@ -163,9 +164,10 @@ sub _usage
 Usage: %s [options], where options are:
 
     -?, -h, -help       this message
-    -p, -path    PATH   directory to watch (required, see *)
-    -t, -timeout SEC    activity timeout (seconds, default: %u)
-    -e, -exec    PATH   execute on activity timeout (required, see *)
+    -p, -path     PATH  directory to watch (required, see *)
+    -t, -timeout  SEC   activity timeout (seconds, default: %u)
+    -i, -interval SEC   poll interval (seconds, default: %u)
+    -e, -exec     PATH  execute on activity timeout (required, see *)
     -f, -fork           fork and daemonize, STDOUT (not STDERR) must be redirected
     -q, -quiet          be quiet
     -d, -debug          print debug info
@@ -193,7 +195,7 @@ umount.sh example:
     fi
 
 USAGE
-    printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, basename($PROGRAM_NAME);
+    printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, $INTERVAL, basename($PROGRAM_NAME);
     exit 1;
 }
 
