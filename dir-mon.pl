@@ -14,7 +14,7 @@ use File::Basename qw/basename/;
 use File::Which;
 use Getopt::Long qw/GetOptions/;
 use IPC::Open2;
-use IPC::Run qw/run harness start/;
+use IPC::Run qw/start/;
 use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
