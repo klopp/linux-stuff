@@ -195,7 +195,6 @@ umount.sh example:
 
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, $INTERVAL, basename($PROGRAM_NAME);
-
     # supress exit message:
     $cpid = $PID;
     exit 1;
