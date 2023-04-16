@@ -162,27 +162,35 @@ sub _usage
 
 Usage: %s [options], where options are:
 
-   -?, -h, -help      this message
-   -p, -path    PATH  directory to watch (required, see *)
-   -t, -timeout SEC   activity timeout (seconds, default: %u)
-   -e, -exec    PATH  execute on activity timeout (required, see *)
-   -f, -fork          fork and daemonize (STDOUT & STDERR must be redirected)
-   -q, -quiet         be quiet
-   -d, -debug         print debug info
-   -dry-run           do not run executable, print command line only
-   -x, -exit          exit after SUCCESS external process (-e) result
-   -xx                exit after ANY external process result 
+    -?, -h, -help       this message
+    -p, -path    PATH   directory to watch (required, see *)
+    -t, -timeout SEC    activity timeout (seconds, default: %u)
+    -e, -exec    PATH   execute on activity timeout (required, see *)
+    -f, -fork           fork and daemonize, STDOUT (not STDERR) must be redirected
+    -q, -quiet          be quiet
+    -d, -debug          print debug info
+    -dry-run            do not run executable, print command line only
+    -x, -exit           exit after SUCCESS external process (-e) result (**)
+    -xx                 exit after ANY external process result (**)
 
-WARNING! 
-Always use -x or -xx if the directory will be unmounted by executable call.
-
-   *
-        __PATH__ substring will be rplaced by "-p" value
-        __HOME__ substring will be rplaced by $HOME value
+*   __PATH__ and __HOME__ substrings will be rplaced by "-p" and $HOME values.
+**  Always use -x or -xx if the directory will be unmounted by executable call.
 
 Example:
 
     %s -x -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
+
+umount.sh example:
+
+    #!/bin/bash
+    LSOF=$(lsof "$1" | awk 'NR>1 {print $2}' | sort -n | uniq)
+    if [[ -z "$LSOF" ]]; then
+        sudo umount -l "$1"
+        exit 0
+    else
+        echo -e "Directory "$1" used by:\n$(ps --no-headers -o command -p ${LSOF})"
+        exit 1
+    fi
 
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, basename($PROGRAM_NAME);
@@ -223,7 +231,7 @@ sub _t
 sub _log
 {
     my ( $pfx, $fmt, @arg ) = @_;
-    return printf "[%s] %s %s\n", $pfx, _t(), sprintf $fmt, @arg;
+    return printf "%s [%s] %s\n", _t(), $pfx, sprintf $fmt, @arg;
 }
 
 # ------------------------------------------------------------------------------
