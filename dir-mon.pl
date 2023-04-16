@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # ------------------------------------------------------------------------------
+use 5.014_000;
 use utf8::all;
 use open qw/:std :utf8/;
 use strict;
@@ -22,6 +23,8 @@ use Time::Local qw/timelocal_posix/;
 # ------------------------------------------------------------------------------
 const my $INTERVAL => 30;
 const my $INOTYFY  => 'inotifywait';
+const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
+const my $RX_TIME  => '(\d\d):(\d\d):(\d\d)';
 our $VERSION = 'v1.01';
 
 # ------------------------------------------------------------------------------
@@ -53,6 +56,11 @@ for (@EXECUTABLE) {
     s/__HOME__/$ENV{HOME}/gsm;
 }
 
+my $cpid = fork;
+exit if $cpid;
+$cpid = fork;
+exit if $cpid;
+
 # ------------------------------------------------------------------------------
 local $SIG{ALRM} = \&_check_access_time;
 local $SIG{TERM} = \&_term;
@@ -64,15 +72,16 @@ local $SIG{INT}  = \&_term;
 $last_access = time;
 alarm $INTERVAL;
 
-$ipid = open2( my $stdout, undef, sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"',
-    $inotifywait, $PATH );
+my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $PATH;
+_d( 'Run %s...', $icmd );
+$ipid = open2( my $stdout, undef, $icmd );
 
 while (<$stdout>) {
 
     next unless m{^
-        (\d{4})[-](\d\d)[-](\d\d)
+        $RX_DATE
         \s+
-        (\d\d):(\d\d):(\d\d)
+        $RX_TIME
         \s+
         (.*)
         \s+
@@ -91,15 +100,17 @@ sub _check_access_time
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
-        _i('No activity for %u sec', $tdiff );
+        _i( 'No activity for %u sec', $tdiff );
         if ( $tdiff >= $TIMEOUT ) {
             _i('Timeout!');
-            ( $DEBUG or $DRY ) and _log('{run}\n> %s', ( join "\n> ", @EXECUTABLE ) );
+            ( $DEBUG or $DRY ) and _log( "{run}\n> %s", ( join "\n> ", @EXECUTABLE ) );
             my ( $out, $err );
             $DRY or run \@EXECUTABLE, sub { }, \$out, \$err;
-            $out  and _log('%s', _trim($out));
-            $err  and _log('%s', _trim($err));
+            $out  and _log( '%s', _trim($out) );
+            $err  and _log( '%s', _trim($err) );
             $EXIT and _term();
+
+            #            kill HUP => $ipid;
             $last_access = time;
         }
         else {
@@ -132,19 +143,9 @@ Always use -x key if the directory will be unmounted by executable call.
         __PATH__ substring will be rplaced by "-p" value
         __HOME__ substring will be rplaced by $HOME value
 
-Run example:
+Example:
 
     %s -x -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
-
-umount.sh example:
-
-    #!/bin/bash
-    LSOF=$(lsof "$1" | awk 'NR>1 {print $2}' | sort -n | uniq)
-    if [[ -z "$LSOF" ]]; then
-        sudo umount -l "$1"
-    else
-        echo -e "\nDirectory $1 used by:\n\n$(ps --no-headers -o command -p ${LSOF})"
-    fi
 
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, basename($PROGRAM_NAME);
@@ -171,32 +172,32 @@ END {
 # ------------------------------------------------------------------------------
 sub _trim
 {
-    $_[0] =~ s/^\s+|\s+$//gsm;
+    return $_[0] =~ s/^\s+|\s+$//gsmr;
 }
 
 # ------------------------------------------------------------------------------
 sub _t
 {
-    return strftime '%F %X ', localtime;
+    return strftime '%F %X', localtime;
 }
 
 # ------------------------------------------------------------------------------
 sub _log
 {
     my ( $fmt, @arg ) = @_;
-    printf "%s %s\n", _t(), $fmt, @arg;
+    return printf "%s %s\n", _t(), sprintf $fmt, @arg;
 }
 
 # ------------------------------------------------------------------------------
 sub _i
 {
-    $QUIET or goto &_log;
+    $QUIET or _log(@_);
 }
 
 # ------------------------------------------------------------------------------
 sub _d
 {
-    $DEBUG and goto &_log;
+    $DEBUG and _log(@_);
 }
 
 # ------------------------------------------------------------------------------
