@@ -179,7 +179,7 @@ Usage: %s [options], where options are:
 
 Example:
 
-    %s -x -q -dry-run -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
+    %s -x -q -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
 
 umount.sh example:
 
@@ -195,6 +195,9 @@ umount.sh example:
 
 USAGE
     printf $USAGE, basename($PROGRAM_NAME), $TIMEOUT, $INTERVAL, basename($PROGRAM_NAME);
+
+    # supress exit message:
+    $cpid = $PID;
     exit 1;
 }
 
