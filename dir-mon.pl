@@ -180,14 +180,28 @@ sub _opt_error
 #   PART[{, }PART...]
 # Example:
 #   "1d, 3h, 24m, 30s"
+#
+# OR
+#   "23:3:6:15" => 23 days, 3 hours, 6 minutes, 15 seconds
+#
 # ------------------------------------------------------------------------------
 sub _interval_to_seconds
 {
     # TODO :: move to private PERL5LIB
     my ($interval) = @_;
-    my @parts      = split /[,\s]+/sm, $interval;
-    my $seconds    = 0;
+    my $seconds = 0;
+    my @parts;
 
+    if ( $interval =~ /^(\d+[:]?)+$/gsm ) {
+        @parts = split /[:]/, $interval;
+        $seconds += pop @parts;
+        $seconds += pop(@parts) * 60           if @parts;
+        $seconds += pop(@parts) * 60 * 60      if @parts;
+        $seconds += pop(@parts) * 60 * 60 * 24 if @parts;
+        return $seconds;
+    }
+
+    @parts = split /[,\s]+/sm, lc $interval;
     for (@parts) {
         return unless /^(\d+)([smhd]?)$/sm;
         if ( $2 eq 'm' ) {
