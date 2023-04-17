@@ -11,6 +11,7 @@ use warnings;
 use Const::Fast;
 use Digest::MD5 qw/md5_hex/;
 use English qw/-no_match_vars/;
+use Fcntl qw/:DEFAULT :flock SEEK_SET/;
 use File::Basename qw/basename/;
 use File::Which;
 use Getopt::Long qw/GetOptions/;
@@ -57,7 +58,8 @@ for (@EXECUTABLE) {
 }
 
 const my $LOCKFILE => sprintf '%s/%s.%s', $opt{lock}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
-_check_self_instance();
+local $OUTPUT_AUTOFLUSH = 1;
+my $lock = _check_self_instance();
 
 if ( $opt{fork} ) {
     _log( q{!}, 'Start deamonized...' );
@@ -69,22 +71,22 @@ if ( $opt{fork} ) {
     umask 0;
     chdir q{/};
     close *{STDIN};
-    _create_lock_file();
+    print {$lock} "$PID\n";
+    close $lock;
 }
 else {
+    close $lock;
     _log( q{!}, 'Start...' );
-    _create_lock_file();
 }
 
 # ------------------------------------------------------------------------------
-local $OUTPUT_AUTOFLUSH = 1;
-local $SIG{ALRM}        = \&_check_access_time;
-local $SIG{TERM}        = \&_sig_x;
-local $SIG{QUIT}        = \&_sig_x;
-local $SIG{USR1}        = \&_sig_x;
-local $SIG{USR1}        = \&_sig_x;
-local $SIG{HUP}         = \&_sig_x;
-local $SIG{INT}         = \&_sig_x;
+local $SIG{ALRM} = \&_check_access_time;
+local $SIG{TERM} = \&_sig_x;
+local $SIG{QUIT} = \&_sig_x;
+local $SIG{USR1} = \&_sig_x;
+local $SIG{USR1} = \&_sig_x;
+local $SIG{HUP}  = \&_sig_x;
+local $SIG{INT}  = \&_sig_x;
 $last_access = time;
 alarm $opt{interval};
 
@@ -245,36 +247,39 @@ sub _sig_x
 }
 
 # ------------------------------------------------------------------------------
-sub _create_lock_file
+sub _check_self_instance
 {
-    my $ph;
-    if ( !open $ph, q{>}, $LOCKFILE ) {
+    my ( $pid, $fh );
+    if ( !sysopen $fh, $LOCKFILE, O_RDWR | O_CREAT ) {
         _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
+        # supress exit message:
+        $cpid = $PID;
+        exit 1;
 
+    }
+    $pid = _trim(<$fh>);
+    if ( !flock $fh, LOCK_EX ) {
+        my $maybe = q{};
+        $pid and $maybe = sprintf ' by "%s"', $pid;
+        _log( q{!}, 'Lock file "%s" is busy%s (%s).', $LOCKFILE, $maybe, $ERRNO );
+        close $fh;
         # supress exit message:
         $cpid = $PID;
         exit 1;
     }
-    print {$ph} "$PID\n";
-    close $ph;
-    return $PID;
-}
 
-# ------------------------------------------------------------------------------
-sub _check_self_instance
-{
-    my $pid;
-    if ( open my $ph, q{<}, $LOCKFILE ) {
-        $pid = <$ph>;
-        close {$ph};
-    }
-
-    $pid = _trim($pid);
     if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
         _log( q{!}, 'Active instance (PID: %s) found!', $pid );
+        close $fh;
+        # supress exit message:
+        $cpid = $PID;
         exit 1;
     }
-    return;
+    $fh->autoflush(1);
+    seek $fh, 0, SEEK_SET;
+    print {$fh} "$PID\n";
+    seek $fh, 0, SEEK_SET;
+    return $fh;
 }
 
 # ------------------------------------------------------------------------------
@@ -285,8 +290,8 @@ END {
         while ( ( my $kidpid = waitpid -1, WNOHANG ) > 0 ) {
             sleep 1;
         }
+        unlink $LOCKFILE;
     }
-    $LOCKFILE and unlink $LOCKFILE;
 }
 
 # ------------------------------------------------------------------------------
@@ -307,7 +312,7 @@ sub _t
 sub _log
 {
     my ( $pfx, $fmt, @arg ) = @_;
-    return printf "%s [%s] %s\n", _t(), $pfx, sprintf $fmt, @arg;
+    return printf "[%u] %s [%s] %s\n", $PID, _t(), $pfx, sprintf $fmt, @arg;
 }
 
 # ------------------------------------------------------------------------------
