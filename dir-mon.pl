@@ -166,18 +166,44 @@ sub _check_access_time
 sub _opt_error
 {
     my ($opt) = @_;
-    printf "Invalid '-%s' option!\n", $opt;
+    _log( q{!}, 'Invalid "-%s" option!', $opt );
     return;
 }
 
 # ------------------------------------------------------------------------------
-sub _valid_number
+# Part:
+#   \d+[s] - seconds
+#   \d+m   - minutes
+#   \d+h   - hours
+#   \d+d   - days
+# IN string:
+#   PART[{, }PART...]
+# Example:
+#   "1d, 3h, 24m, 30s"
+# ------------------------------------------------------------------------------
+sub _interval_to_seconds
 {
-    my ($key) = @_;
-    if ( $opt{$key} && $opt{$key} =~ /^\d+$/sm ) {
-        return 1;
+    # TODO :: move to private PERL5LIB
+    my ($interval) = @_;
+    my @parts      = split /[,\s]+/sm, $interval;
+    my $seconds    = 0;
+
+    for (@parts) {
+        return unless /^(\d+)([smhd]?)$/sm;
+        if ( $2 eq 'm' ) {
+            $seconds += $1 * 60;
+        }
+        elsif ( $2 eq 'h' ) {
+            $seconds += $1 * 60 * 60;
+        }
+        elsif ( $2 eq 'd' ) {
+            $seconds += $1 * 60 * 60 * 24;
+        }
+        else {
+            $seconds += $1;
+        }
     }
-    return _opt_error($key);
+    return $seconds;
 }
 
 # ------------------------------------------------------------------------------
@@ -192,7 +218,11 @@ sub _check_opt
     if ( $opt{lockdir} && !-d $opt{lockdir} ) {
         return _opt_error('lock');
     }
-    return _valid_number('interval') && _valid_number('timeout');
+    $opt{interval} = _interval_to_seconds( $opt{interval} );
+    $opt{timeout}  = _interval_to_seconds( $opt{timeout} );
+    $opt{interval} or return _opt_error('interval');
+    $opt{timeout}  or return _opt_error('timeout');
+    return 1;
 }
 
 # ------------------------------------------------------------------------------
@@ -315,13 +345,13 @@ sub _log
 # ------------------------------------------------------------------------------
 sub _i
 {
-    $opt{quiet} or _log( q{-}, @_ );
+    return ( $opt{quiet} or _log( q{-}, @_ ) );
 }
 
 # ------------------------------------------------------------------------------
 sub _d
 {
-    $opt{debug} and _log( q{*}, @_ );
+    return ( $opt{debug} and _log( q{*}, @_ ) );
 }
 
 # ------------------------------------------------------------------------------
