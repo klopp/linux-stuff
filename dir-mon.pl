@@ -23,7 +23,7 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-our $VERSION = 'v1.03';
+our $VERSION = 'v1.04';
 const my $EXE_NAME => basename($PROGRAM_NAME);
 const my $INOTYFY  => 'inotifywait';
 const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
@@ -252,6 +252,7 @@ sub _check_self_instance
     my ( $pid, $fh );
     if ( !sysopen $fh, $LOCKFILE, O_RDWR | O_CREAT ) {
         _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
+
         # supress exit message:
         $cpid = $PID;
         exit 1;
@@ -263,6 +264,7 @@ sub _check_self_instance
         $pid and $maybe = sprintf ' by "%s"', $pid;
         _log( q{!}, 'Lock file "%s" is busy%s (%s).', $LOCKFILE, $maybe, $ERRNO );
         close $fh;
+
         # supress exit message:
         $cpid = $PID;
         exit 1;
@@ -271,6 +273,7 @@ sub _check_self_instance
     if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
         _log( q{!}, 'Active instance (PID: %s) found!', $pid );
         close $fh;
+
         # supress exit message:
         $cpid = $PID;
         exit 1;
