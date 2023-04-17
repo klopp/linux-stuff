@@ -24,17 +24,20 @@ use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.04';
-const my $EXE_NAME => basename($PROGRAM_NAME);
-const my $INOTYFY  => 'inotifywait';
-const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
-const my $RX_TIME  => '(\d\d):(\d\d):(\d\d)';
+const my $DEF_TIMEOUT  => ( 60 * 10 );
+const my $DEF_INTERVAL => 30;
+const my $DEF_LOCKDIR  => '/var/lock';
+const my $EXE_NAME     => basename($PROGRAM_NAME);
+const my $INOTYFY      => 'inotifywait';
+const my $RX_DATE      => '(\d{4})[-](\d\d)[-](\d\d)';
+const my $RX_TIME      => '(\d\d):(\d\d):(\d\d)';
 
 # ------------------------------------------------------------------------------
 my ( $cpid, $last_access, $ipid );
 my %opt = (
-    timeout  => ( 60 * 10 ),
-    interval => 30,
-    lock     => '/var/lock',
+    timeout  => $DEF_TIMEOUT,
+    interval => $DEF_INTERVAL,
+    lockdir  => $DEF_LOCKDIR,
 );
 
 my $inotifywait = which $INOTYFY;
@@ -45,8 +48,8 @@ if ( !$inotifywait ) {
 
 # ------------------------------------------------------------------------------
 GetOptions(
-    \%opt,      'path|p=s',    'timeout|t=i', 'interval|i=i', 'exec|e=s', 'fork|f',
-    'lock|l=s', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
+    \%opt,         'path|p=s',    'timeout|t=s', 'interval|i=s', 'exec|e=s', 'fork|f',
+    'lockdir|l=s', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
     'xx',
 );
 _check_opt() or _usage();
@@ -57,7 +60,7 @@ for (@EXECUTABLE) {
     s/__HOME__/$ENV{HOME}/gsm;
 }
 
-my $LOCKFILE = sprintf '%s/%s.%s', $opt{lock}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
+my $LOCKFILE = sprintf '%s/%s.%s', $opt{lockdir}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
 local $OUTPUT_AUTOFLUSH = 1;
 my $lock = _check_self_instance();
 
@@ -186,7 +189,7 @@ sub _check_opt
     if ( !$opt{exec} ) {
         return _opt_error('exec');
     }
-    if ( $opt{lock} && !-d $opt{lock} ) {
+    if ( $opt{lockdir} && !-d $opt{lockdir} ) {
         return _opt_error('lock');
     }
     return _valid_number('interval') && _valid_number('timeout');
@@ -204,8 +207,8 @@ Usage: %s [options], where options are:
     -t, -timeout  SEC   activity timeout (seconds, default: %u)
     -i, -interval SEC   poll interval (seconds, default: %u)
     -e, -exec     PATH  execute on activity timeout (required, see *)
+    -l, -lockdir  PATH  lock file directory, default: %s
     -f, -fork           fork and daemonize, STDOUT (not STDERR) must be redirected
-    -l, -lock           lock file directory, default: %s
     -q, -quiet          be quiet
     -d, -debug          print debug info
     -dry, dry-run       do not run executable, print command line only
@@ -232,7 +235,7 @@ umount.sh example:
     fi
 
 USAGE
-    printf $USAGE, $EXE_NAME, $opt{timeout}, $opt{interval}, $opt{lock}, $EXE_NAME;
+    printf $USAGE, $EXE_NAME, $DEF_TIMEOUT, $DEF_INTERVAL, $DEF_LOCKDIR, $EXE_NAME;
 
     # supress exit message:
     $cpid = $PID;
