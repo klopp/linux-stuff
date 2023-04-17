@@ -22,7 +22,7 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-our $VERSION = 'v1.02';
+our $VERSION = 'v1.03';
 const my $EXE_NAME => basename($PROGRAM_NAME);
 const my $INOTYFY  => 'inotifywait';
 const my $RX_DATE  => '(\d{4})[-](\d\d)[-](\d\d)';
@@ -36,8 +36,6 @@ my %opt = (
     lock     => '/var/lock',
 );
 
-#my ( $TIMEOUT, $INTERVAL, $LOCKDIR, $PATH, $EXEC, $FORK, $REPLACE, $QUIET, $DEBUG, $EXIT, $DRY )
-#    = ( 60 * 10, 30, '/var/lock' );
 my $inotifywait = which $INOTYFY;
 if ( !$inotifywait ) {
     print "No required '$INOTYFY' executable found!\n";
@@ -46,20 +44,11 @@ if ( !$inotifywait ) {
 
 # ------------------------------------------------------------------------------
 GetOptions(
-    \%opt,    'path|p=s',    'timeout|t=i', 'interval|i=i', 'exec|e=s', 'fork|f',
-    'lock|l', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
+    \%opt,      'path|p=s',    'timeout|t=i', 'interval|i=i', 'exec|e=s', 'fork|f',
+    'lock|l=s', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
     'xx',
 );
-(          ( $opt{lock} && -d $opt{lock} )
-        && $opt{exec}
-        && -x $opt{exec}
-        && $opt{path}
-        && -d $opt{path}
-        && $opt{timeout}
-        && $opt{timeout} =~ /^\d+$/sm
-        && $opt{interval}
-        && $opt{interval} =~ /^\d+$/sm )
-    or _usage();
+_check_opt() or _usage();
 
 my @EXECUTABLE = quotewords( '\s+', 1, $opt{exec} );
 for (@EXECUTABLE) {
@@ -169,6 +158,39 @@ sub _check_access_time
 }
 
 # ------------------------------------------------------------------------------
+sub _opt_error
+{
+    my ($opt) = @_;
+    printf "Invalid '-%s' option!\n", $opt;
+    return;
+}
+
+# ------------------------------------------------------------------------------
+sub _valid_number
+{
+    my ($key) = @_;
+    if ( $opt{$key} && $opt{$key} =~ /^\d+$/sm ) {
+        return 1;
+    }
+    return _opt_error($key);
+}
+
+# ------------------------------------------------------------------------------
+sub _check_opt
+{
+    if ( !$opt{path} || !-d $opt{path} ) {
+        return _opt_error('path');
+    }
+    if ( !$opt{exec} ) {
+        return _opt_error('exec');
+    }
+    if ( $opt{lock} && !-d $opt{lock} ) {
+        return _opt_error('lock');
+    }
+    return _valid_number('interval') && _valid_number('timeout');
+}
+
+# ------------------------------------------------------------------------------
 sub _usage
 {
     CORE::state $USAGE = <<'USAGE';
@@ -228,9 +250,12 @@ sub _create_lock_file
     my $ph;
     if ( !open $ph, q{>}, $LOCKFILE ) {
         _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
+
+        # supress exit message:
+        $cpid = $PID;
         exit 1;
     }
-    print $ph "$PID\n";
+    print {$ph} "$PID\n";
     close $ph;
     return $PID;
 }
@@ -241,9 +266,10 @@ sub _check_self_instance
     my $pid;
     if ( open my $ph, q{<}, $LOCKFILE ) {
         $pid = <$ph>;
-        close $ph;
+        close {$ph};
     }
 
+    $pid = _trim($pid);
     if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
         _log( q{!}, 'Active instance (PID: %s) found!', $pid );
         exit 1;
@@ -260,13 +286,14 @@ END {
             sleep 1;
         }
     }
+    $LOCKFILE and unlink $LOCKFILE;
 }
 
 # ------------------------------------------------------------------------------
 sub _trim
 {
     my ($s) = @_;
-    $s =~ s/^\s+|\s+$//gsm;
+    $s and $s =~ s/^\s+|\s+$//gsm;
     return $s;
 }
 
