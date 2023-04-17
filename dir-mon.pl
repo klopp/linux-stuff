@@ -57,7 +57,7 @@ for (@EXECUTABLE) {
     s/__HOME__/$ENV{HOME}/gsm;
 }
 
-const my $LOCKFILE => sprintf '%s/%s.%s', $opt{lock}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
+my $LOCKFILE = sprintf '%s/%s.%s', $opt{lock}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
 local $OUTPUT_AUTOFLUSH = 1;
 my $lock = _check_self_instance();
 
@@ -250,8 +250,9 @@ sub _sig_x
 sub _check_self_instance
 {
     my ( $pid, $fh );
-    if ( !sysopen $fh, $LOCKFILE, O_RDWR | O_CREAT ) {
+    if ( !sysopen( $fh, $LOCKFILE, O_RDWR | O_CREAT ) || !flock( $fh, LOCK_EX ) ) {
         _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
+        $fh and close $fh;
 
         # supress exit message:
         $cpid = $PID;
@@ -259,17 +260,6 @@ sub _check_self_instance
 
     }
     $pid = _trim(<$fh>);
-    if ( !flock $fh, LOCK_EX ) {
-        my $maybe = q{};
-        $pid and $maybe = sprintf ' by "%s"', $pid;
-        _log( q{!}, 'Lock file "%s" is busy%s (%s).', $LOCKFILE, $maybe, $ERRNO );
-        close $fh;
-
-        # supress exit message:
-        $cpid = $PID;
-        exit 1;
-    }
-
     if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
         _log( q{!}, 'Active instance (PID: %s) found!', $pid );
         close $fh;
@@ -279,9 +269,9 @@ sub _check_self_instance
         exit 1;
     }
     $fh->autoflush(1);
-    seek $fh, 0, SEEK_SET;
+    sysseek $fh, 0, SEEK_SET;
     print {$fh} "$PID\n";
-    seek $fh, 0, SEEK_SET;
+    sysseek $fh, 0, SEEK_SET;
     return $fh;
 }
 
@@ -289,6 +279,7 @@ sub _check_self_instance
 END {
     $cpid or _log( q{!}, 'Stop all jobs and exit...' );
     if ($ipid) {
+        _d( 'Send TERM to [%u] pid tree...', $ipid );
         killfam 'TERM', ($ipid);
         while ( ( my $kidpid = waitpid -1, WNOHANG ) > 0 ) {
             sleep 1;
