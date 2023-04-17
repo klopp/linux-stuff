@@ -171,23 +171,22 @@ sub _opt_error
 }
 
 # ------------------------------------------------------------------------------
-# Part:
-#   \d+[s] - seconds
-#   \d+m   - minutes
-#   \d+h   - hours
-#   \d+d   - days
+# TODO :: move this function to private PERL5LIB
+#
+# PART:
+#   \d+[s] - seconds, \d+[m] - minutes, \d+[h] - hours, \d+[d] - days
 # IN string:
 #   PART[{, }PART...]
 # Example:
-#   "1d, 3h, 24m, 30s"
+#   "1d, 24m, 3h, 30s"
 #
 # OR
 #   "23:3:6:15" => 23 days, 3 hours, 6 minutes, 15 seconds
-#
+#   "3:6:15"    => 3 hours, 6 minutes, 15 seconds
+#   etc
 # ------------------------------------------------------------------------------
 sub _interval_to_seconds
 {
-    # TODO :: move to private PERL5LIB
     my ($interval) = @_;
     my $seconds = 0;
     my @parts;
@@ -252,7 +251,7 @@ Usage: %s [options], where options are:
     -i, -interval SEC   poll interval (seconds, default: %u)
     -e, -exec     PATH  execute on activity timeout (required, see *)
     -l, -lockdir  PATH  lock file directory, default: %s
-    -f, -fork           fork and daemonize, STDOUT (not STDERR) must be redirected
+    -f, -fork           fork and daemonize, STDOUT and STDERR must be redirected
     -q, -quiet          be quiet
     -d, -debug          print debug info
     -dry, dry-run       do not run executable, print command line only
@@ -264,7 +263,7 @@ Usage: %s [options], where options are:
 
 Example:
 
-    %s -x -q -t 300 -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__"
+    %s -x -f -p "__HOME__/nfs" -e "__HOME__/bin/umount.sh __PATH__" >> /tmp/d.log 2>&1
 
 umount.sh example:
 
