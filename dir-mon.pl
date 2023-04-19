@@ -25,7 +25,7 @@ use Time::Local qw/timelocal_posix/;
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.04';
 const my $DEF_TIMEOUT  => ( 60 * 10 );
-const my $DEF_INTERVAL => 30;
+const my $DEF_INTERVAL => 10;
 const my $DEF_LOCKDIR  => '/var/lock';
 const my $EXE_NAME     => basename($PROGRAM_NAME);
 const my $INOTYFY      => 'inotifywait';
@@ -91,9 +91,11 @@ local $SIG{USR1} = \&_sig_x;
 local $SIG{HUP}  = \&_sig_x;
 local $SIG{INT}  = \&_sig_x;
 $last_access = time;
-alarm $opt{interval};
 
-my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $opt{path};
+#alarm $opt{interval};
+
+my $icmd = sprintf '%s -t %d -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait,
+    $opt{interval}, $opt{path};
 _i( 'Run %s...', $icmd );
 $ipid = open2( my $stdout, undef, $icmd );
 
@@ -159,7 +161,8 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-    return alarm $opt{interval};
+####    return alarm $opt{interval};
+    return;
 }
 
 # ------------------------------------------------------------------------------
@@ -235,6 +238,8 @@ sub _check_opt
     $opt{timeout}  = _interval_to_seconds( $opt{timeout} );
     $opt{interval} or return _opt_error('interval');
     $opt{timeout}  or return _opt_error('timeout');
+    ( $opt{interval} < 10 || $opt{interval} > 60 ) and _opt_error('interval');
+    $opt{timeout} > 10 or _opt_error('timeout');
     return 1;
 }
 
@@ -247,8 +252,8 @@ Usage: %s [options], where options are:
 
     -?, -h, -help       this message
     -p, -path     PATH  directory to watch (required, see *)
-    -t, -timeout  SEC   activity timeout (seconds, default: %u)
-    -i, -interval SEC   poll interval (seconds, default: %u)
+    -t, -timeout  SEC   activity timeout (seconds, > 10, default: %u)
+    -i, -interval SEC   poll interval (seconds, >10 and <= 60, default: %u)
     -e, -exec     PATH  execute on activity timeout (required, see *)
     -l, -lockdir  PATH  lock file directory, default: %s
     -f, -fork           fork and daemonize, STDOUT and STDERR must be redirected
