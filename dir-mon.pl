@@ -357,7 +357,7 @@ sub _t
 sub _log
 {
     my ( $pfx, $fmt, @arg ) = @_;
-    return printf "[%u] %s [%s] %s\n", $PID, _t(), $pfx, sprintf $fmt, @arg;
+    return printf "%s [%s] [%u] %s\n", _t(), $pfx, $PID, sprintf $fmt, @arg;
 }
 
 # ------------------------------------------------------------------------------
