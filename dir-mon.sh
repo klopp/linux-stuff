@@ -134,7 +134,7 @@ if (( ${TIMEOUT} < 10 )); then
     usage
 fi
 if (( ${INTERVAL} < 10 || ${INTERVAL} > 60 )); then
-    echo "Interval must be >= 10 and <= 60seconds!"
+    echo "Interval must be >= 10 and <= 60 seconds!"
     usage
 fi
 EXE=($EXE)

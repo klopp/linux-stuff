@@ -2,13 +2,19 @@
 
 Всякие мелочи для linux.
 
+All sorts of little things for linux.
+
 ## [remove-r.sh](remove-r.sh)
 
 Удаляет возврат каретки из файлов. Если аргумент - каталог, то имена файлов в нём проверяются на соответствие масок для исходников и всего похожего на них (с моей точки зрения, конечно).
 
+Removes carriage returns from files. If the argument is a directory, then the filenames in it are checked against the masks for source codes and everything similar to them (from my point of view, of course).
+
 ## [dir-mon.pl](dir-mon.pl)
 
 Мониторит каталоги и отслеживает время неактивности. При его достижении запускает то, что сказано. Самый простой пример запуска:
+
+Monitors directories and keeps track of inactivity time. When it is reached, it launches what is said. The simplest run example:
 
 ```bash
 $ ./dir-mon.pl -p "$HOME/luks-disk" -e "$HOME/bin/umount-luks-disk.sh" -t 600
@@ -16,13 +22,19 @@ $ ./dir-mon.pl -p "$HOME/luks-disk" -e "$HOME/bin/umount-luks-disk.sh" -t 600
 # его из /dev/mapper. Средствами mount, automount, systemd-mount etc такое полноценно 
 # не получится, ради чего, собственно, эта утилита и писалась (но может использоваться 
 # для чего угодно).
+# If there is no activity for 10 minutes, unmount the LUKS disk and delete
+# it from /dev/mapper. By means of mount, automount, systemd-mount etc, this is fully
+# will not work, for which, in fact, this utility was written (but can be used
+# for whatever).
 ```
 
-Подробности по ключам `-?`, `-h`, `-help`.
+See `-?`, `-h`, `-help`.
 
 ## [dir-mon.sh](dir-mon.sh)
 
 То же самое, но чуть пожиже и на чистом `bash`.
+
+The same, but in pure `bash`.
 
 ## [xfce4-genmon](xfce4-genmon/)
 
