@@ -83,16 +83,13 @@ else {
 }
 
 # ------------------------------------------------------------------------------
-local $SIG{ALRM} = \&_check_access_time;
-local $SIG{TERM} = \&_sig_x;
-local $SIG{QUIT} = \&_sig_x;
-local $SIG{USR1} = \&_sig_x;
-local $SIG{USR1} = \&_sig_x;
-local $SIG{HUP}  = \&_sig_x;
-local $SIG{INT}  = \&_sig_x;
+local $SIG{TERM} = \&_signal_x;
+local $SIG{QUIT} = \&_signal_x;
+local $SIG{USR1} = \&_signal_x;
+local $SIG{USR1} = \&_signal_x;
+local $SIG{HUP}  = \&_signal_x;
+local $SIG{INT}  = \&_signal_x;
 $last_access = time;
-
-#alarm $opt{interval};
 
 my $icmd = sprintf '%s -t %d -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait,
     $opt{interval}, $opt{path};
@@ -101,7 +98,8 @@ $ipid = open2( my $stdout, undef, $icmd );
 
 while (<$stdout>) {
 
-    next unless m{^
+    my $taccess;
+    if (m{^
         $RX_DATE
         \s+
         $RX_TIME
@@ -109,17 +107,20 @@ while (<$stdout>) {
         (.*)
         \s+
         \[(.+)\]
-    }xsm;
+    }xsm
+        )
+    {
 
-    my $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
-    _d( '[%04d-%02d-%02d %02d:%02d:%02d] %s {%s}', $1, $2, $3, $4, $5, $6, $7, $8 );
-    _check_access_time( undef, $taccess );
+        $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
+        _d( '[%04d-%02d-%02d %02d:%02d:%02d] %s {%s}', $1, $2, $3, $4, $5, $6, $7, $8 );
+    }
+    _check_access_time($taccess);
 }
 
 # ------------------------------------------------------------------------------
 sub _check_access_time
 {
-    my ( undef, $taccess ) = @_;
+    my ($taccess) = @_;
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
@@ -161,7 +162,6 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-####    return alarm $opt{interval};
     return;
 }
 
@@ -238,8 +238,8 @@ sub _check_opt
     $opt{timeout}  = _interval_to_seconds( $opt{timeout} );
     $opt{interval} or return _opt_error('interval');
     $opt{timeout}  or return _opt_error('timeout');
-    ( $opt{interval} < 10 || $opt{interval} > 60 ) and _opt_error('interval');
-    $opt{timeout} > 10 or _opt_error('timeout');
+    ( $opt{interval} < 10 || $opt{interval} > 60 ) and return _opt_error('interval');
+    $opt{timeout} > 10 or return _opt_error('timeout');
     return 1;
 }
 
@@ -291,7 +291,7 @@ USAGE
 }
 
 # ------------------------------------------------------------------------------
-sub _sig_x
+sub _signal_x
 {
     _i( 'Got signal "%s".', shift );
     exit;
