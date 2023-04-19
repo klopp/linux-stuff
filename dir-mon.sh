@@ -41,12 +41,19 @@ function check_timeout
     (( DIFF = ${CURRENT} - ${LAST} ))
     if (( ${DIFF} >= ${TIMEOUT} )); then
         (("${Q}")) || echo "Timeout!"
-        if [[ $? -eq 0 ]]; then
+        OUT=$("${EXE[@]}" 2>&1)
+        RC=$?
+        (("${Q}")) || echo "${OUT}"
+        if [[ ${RC} -eq 0 ]]; then
             if [[ ${X} -eq 1 ]]; then
+                echo "External command return OK, exit..."
                 exit 0;
             fi                        
         elif [[ ${X} -eq 2 ]]; then
+            echo "External command fails, exit..."
             exit 0;
+        else
+            echo "External command fails, continue..."
         fi
         LAST=${CURRENT}
     fi
@@ -122,10 +129,6 @@ if [[ ! -d "${DIR}" ]]; then
     echo "Can not find directory \"${DIR}\"!"
     usage
 fi
-if [[ ! -x "${EXE}" ]]; then
-    echo "Can not execute \"${EXE}\"!"
-    usage
-fi
 if (( ${TIMEOUT} < 10 )); then
     echo "Timeout too small, must be >= 10 seconds!"
     usage
@@ -134,6 +137,7 @@ if (( ${INTERVAL} < 10 || ${INTERVAL} > 60 )); then
     echo "Interval must be >= 10 and <= 60seconds!"
     usage
 fi
+EXE=($EXE)
 
 # ------------------------------------------------------------------------------
 while true; do
