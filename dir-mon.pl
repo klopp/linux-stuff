@@ -252,7 +252,7 @@ Usage: %s [options], where options are:
 
     -?, -h, -help       this message
     -p, -path     PATH  directory to watch (required, see *)
-    -t, -timeout  SEC   activity timeout (seconds, > 10, default: %u)
+    -t, -timeout  SEC   activity timeout (seconds, >= 10, default: %u)
     -i, -interval SEC   poll interval (seconds, >10 and <= 60, default: %u)
     -e, -exec     PATH  execute on activity timeout (required, see *)
     -l, -lockdir  PATH  lock file directory, default: %s

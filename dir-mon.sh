@@ -8,6 +8,7 @@ Q="0"
 DIR=""
 EXE=""
 TIMEOUT="600"
+INTERVAL="10"
 LAST=$(date +'%s' -d 'now')
 
 # ------------------------------------------------------------------------------
@@ -16,11 +17,13 @@ function usage
     cat << USAGE
 Usage: $(basename "${0}") [options], where options are:
     -t, --timeout
-        Activity timeout in seconds (default: ${TIMEOUT})
+        Activity timeout (seconds, >= 10, default: ${TIMEOUT})
     -d, --dir, -p, --path
         Directory to watch
     -e, --exec
         Run on activity timeout
+    -i, --interval
+        Poll interval (seconds, >=10 and <= 60, default: ${INTERVAL})
     -q
         Be quiet
     -x
@@ -71,7 +74,13 @@ while [ $# -gt 0 ]; do
     case "${1}" in
         '-t' | '--timeout')
             TIMEOUT=$(check_int "${2}")
-            ((${TMAX})) || usage
+            ((${TIMEOUT})) || usage
+            shift 2
+            continue
+        ;;
+        '-i' | '--interval')
+            INTERVAL=$(check_int "${2}")
+            ((${INTERVAL})) || usage
             shift 2
             continue
         ;;
@@ -124,15 +133,19 @@ if [[ ! -x "${EXE}" ]]; then
     usage
 fi
 if (( ${TIMEOUT} < 10 )); then
-    echo "Timeout too small, must be > 10 seconds!"
+    echo "Timeout too small, must be >= 10 seconds!"
+    usage
+fi
+if (( ${INTERVAL} < 10 || ${INTERVAL} > 60 )); then
+    echo "Interval must be >= 10 and <= 60seconds!"
     usage
 fi
 
 # ------------------------------------------------------------------------------
 while true; do
     REPLY=""
-    inotifywait -q -r -t 10 --timefmt="%Y-%m-%d %X" --format="%T" "${DIR}" | \
-    while read -r -t 10; do
+    inotifywait -q -r -t ${INTERVAL} --timefmt="%Y-%m-%d %X" --format="%T" "${DIR}" | \
+    while read -r -t ${INTERVAL}; do
         if [[ -n "${REPLY}" ]]; then
             LAST=$(date +'%s' -d "${REPLY}")
         fi
