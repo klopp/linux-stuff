@@ -20,6 +20,10 @@ $ ./dir-mon.pl -p "$HOME/luks-disk" -e "$HOME/bin/umount-luks-disk.sh" -t 600
 
 Подробности по ключам `-?`, `-h`, `-help`.
 
+## [dir-mon.sh](dir-mon.sh)
+
+То же самое, но чуть пожиже и на чистом `bash`.
+
 ## [xfce4-genmon](xfce4-genmon/)
 
 Скрипты для [xfce4-genmon-plugin](https://docs.xfce.org/panel-plugins/xfce4-genmon-plugin/start).
