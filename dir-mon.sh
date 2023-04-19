@@ -41,20 +41,14 @@ function check_timeout
     (( DIFF = ${CURRENT} - ${LAST} ))
     if (( ${DIFF} >= ${TIMEOUT} )); then
         (("${Q}")) || echo "Timeout!"
-        # на всякий случай проверим не держит ли кто каталог:
-#        LSOF=$(lsof "${DIR}" | awk 'NR>1 {print $2}' | sort -n | uniq)
-#        if [[ -z "${LSOF}" ]]; then
-        # не держит - OK, размонтируем
-#            sudo umount -l -q "${DIR}"
-#            sudo cryptsetup luksClose ${HDD}
-#            exit 0;
-        else
-        # держит - продолжаем ждать
-            (("${Q}")) || echo "Directory ${DIR} used by:"
-            (("${Q}")) || echo -e "$(ps --no-headers -o command -p ${LSOF})"
-            (("${Q}")) || echo "Wait more..."
-            LAST=${CURRENT}
+        if [[ $? -eq 0 ]]; then
+            if [[ ${X} -eq 1 ]]; then
+                exit 0;
+            fi                        
+        elif [[ ${X} -eq 2 ]]; then
+            exit 0;
         fi
+        LAST=${CURRENT}
     fi
 }
 
