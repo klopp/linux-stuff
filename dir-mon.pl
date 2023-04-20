@@ -19,9 +19,9 @@ use IPC::Open2;
 use IPC::Run qw/start/;
 use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
-use Sys::SigAction qw/timeout_call/;
 use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
+use Time::Out qw/timeout/;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.05';
@@ -103,12 +103,10 @@ $last_access = time;
 alarm $opt{interval};
 while (1) {
 
-    my $line;
-    timeout_call( $opt{interval}, sub { $line = $stdout->getline } );
-    while ($line) {
+    $_ = timeout $opt{interval} => sub { $stdout->getline };
+    while ($_) {
         my $taccess;
-        if (   $line
-            && $line =~ m{^
+        if (m{^
             $RX_DATE
             \s+
             $RX_TIME
@@ -120,10 +118,10 @@ while (1) {
             )
         {
             $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
-            _d( '[%s] %s {%s}', _t($taccess), $7, $8 );
+            _d( '{%s} {%s} {%s}', _t($taccess), $7, $8 );
         }
         _check_access_time( undef, $taccess );
-        timeout_call( $opt{interval}, sub { $line = $stdout->getline } );
+        $_ = timeout $opt{interval} => sub { $stdout->getline };
     }
 }
 
@@ -133,7 +131,10 @@ sub _check_access_time
     CORE::state $guard = 0;
     return if ++$guard > 1;
 
-    my ( undef, $taccess ) = @_;
+    my ( $signal, $taccess ) = @_;
+
+    $signal and _d( 'call %s() from ALRM', ( caller(0) )[3] );
+    $signal or _d( 'call %s(%s) from inotify', ( caller(0) )[3], $taccess || q{?} );
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
