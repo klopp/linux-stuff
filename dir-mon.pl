@@ -87,12 +87,12 @@ else {
 local $SIG{ALRM} = \&_check_access_time;
 local $SIG{ABRT} = \&_signal_x;
 local $SIG{PIPE} = \&_signal_x;
-local $SIG{SEGV} = \&_signal_x;
-local $SIG{TRAP} = \&_signal_x;
-local $SIG{TERM} = \&_signal_x;
 local $SIG{QUIT} = \&_signal_x;
+local $SIG{SEGV} = \&_signal_x;
+local $SIG{TERM} = \&_signal_x;
+local $SIG{TRAP} = \&_signal_x;
 local $SIG{USR1} = \&_signal_x;
-local $SIG{USR1} = \&_signal_x;
+local $SIG{USR2} = \&_signal_x;
 local $SIG{HUP}  = \&_signal_x;
 local $SIG{INT}  = \&_signal_x;
 
