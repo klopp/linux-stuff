@@ -24,7 +24,7 @@ use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
 # ------------------------------------------------------------------------------
-our $VERSION = 'v1.04';
+our $VERSION = 'v1.05';
 const my $DEF_TIMEOUT  => ( 60 * 10 );
 const my $DEF_INTERVAL => 10;
 const my $DEF_LOCKDIR  => '/var/lock';
