@@ -41,7 +41,7 @@ function check_timeout
     (( DIFF = ${CURRENT} - ${LAST} ))
     if (( ${DIFF} >= ${TIMEOUT} )); then
         (("${Q}")) || echo "Timeout!"
-        OUT=$("${EXE[@]}" 2>&1)
+        OUT=$(timeout -s 9 "${INTERVAL}" "${EXE[@]}" 2>&1)
         RC=$?
         (("${Q}")) || echo "${OUT}"
         if [[ ${RC} -eq 0 ]]; then
