@@ -131,8 +131,7 @@ while (1) {
 sub _check_access_time
 {
     CORE::state $guard = 0;
-    return if $guard;
-    $guard = 1;
+    return if ++$guard > 1;
 
     my ( undef, $taccess ) = @_;
 
@@ -177,7 +176,7 @@ sub _check_access_time
         }
     }
     alarm $opt{interval};
-    return --$guard;
+    return $guard = 0;
 }
 
 # ------------------------------------------------------------------------------
