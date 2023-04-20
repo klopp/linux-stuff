@@ -19,6 +19,7 @@ use IPC::Open2;
 use IPC::Run qw/start/;
 use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
+use Sys::SigAction qw/timeout_call/;
 use Text::ParseWords qw/quotewords/;
 use Time::Local qw/timelocal_posix/;
 
@@ -83,44 +84,57 @@ else {
 }
 
 # ------------------------------------------------------------------------------
+local $SIG{ALRM} = \&_check_access_time;
+local $SIG{ABRT} = \&_signal_x;
+local $SIG{PIPE} = \&_signal_x;
+local $SIG{SEGV} = \&_signal_x;
+local $SIG{TRAP} = \&_signal_x;
 local $SIG{TERM} = \&_signal_x;
 local $SIG{QUIT} = \&_signal_x;
 local $SIG{USR1} = \&_signal_x;
 local $SIG{USR1} = \&_signal_x;
 local $SIG{HUP}  = \&_signal_x;
 local $SIG{INT}  = \&_signal_x;
-$last_access = time;
 
-my $icmd = sprintf '%s -t %d -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait,
-    $opt{interval}, $opt{path};
+my $icmd = sprintf '%s -q -m -r --timefmt="%%Y-%%m-%%d %%X" --format="%%T %%w%%f [%%e]" "%s"', $inotifywait, $opt{path};
 _i( 'Run %s...', $icmd );
-$ipid = open2( my $stdout, undef, $icmd );
+$ipid        = open2( my $stdout, undef, $icmd );
+$last_access = time;
+alarm $opt{interval};
+while (1) {
 
-while (<$stdout>) {
-
-    my $taccess;
-    if (m{^
-        $RX_DATE
-        \s+
-        $RX_TIME
-        \s+
-        (.*)
-        \s+
-        \[(.+)\]
-    }xsm
-        )
-    {
-
-        $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
-        _d( '[%04d-%02d-%02d %02d:%02d:%02d] %s {%s}', $1, $2, $3, $4, $5, $6, $7, $8 );
+    my $line;
+    timeout_call( $opt{interval}, sub { $line = $stdout->getline } );
+    while ($line) {
+        my $taccess;
+        if (   $line
+            && $line =~ m{^
+            $RX_DATE
+            \s+
+            $RX_TIME
+            \s+
+            (.*)
+            \s+
+            \[(.+)\]
+        }xsm
+            )
+        {
+            $taccess = timelocal_posix( $6, $5, $4, $3, $2 - 1, $1 - 1900 );
+            _d( '[%s] %s {%s}', _t($taccess), $7, $8 );
+        }
+        _check_access_time( undef, $taccess );
+        timeout_call( $opt{interval}, sub { $line = $stdout->getline } );
     }
-    _check_access_time($taccess);
 }
 
 # ------------------------------------------------------------------------------
 sub _check_access_time
 {
-    my ($taccess) = @_;
+    CORE::state $guard = 0;
+    return if $guard;
+    $guard = 1;
+
+    my ( undef, $taccess ) = @_;
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
@@ -162,7 +176,8 @@ sub _check_access_time
             $taccess and $last_access = $taccess;
         }
     }
-    return;
+    alarm $opt{interval};
+    return --$guard;
 }
 
 # ------------------------------------------------------------------------------
@@ -350,7 +365,9 @@ sub _trim
 # ------------------------------------------------------------------------------
 sub _t
 {
-    return strftime '%F %X', localtime;
+    my ($t) = @_;
+    $t //= time;
+    return strftime '%F %X', localtime $t;
 }
 
 # ------------------------------------------------------------------------------
