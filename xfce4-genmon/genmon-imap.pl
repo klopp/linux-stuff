@@ -146,6 +146,12 @@ sub _check_mailboxes
     my ($section) = @_;
 
     my %mailboxes;
+
+    if ( $section->{offline} ) {
+        $mailboxes{_} = 'offline';
+        return \%mailboxes;
+    }
+
     my $imap = Mail::IMAPClient->new(
         Server   => $section->{host},
         User     => $section->{user},
