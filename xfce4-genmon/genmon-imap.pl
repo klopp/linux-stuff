@@ -100,7 +100,10 @@ sub _load_config
         }
     }
     $config{_}->{click} //= 'true';
-    _values_to_scalar( $config{_}, q{new}, q{nonew}, q{click} );
+    _values_to_scalar( $config{_}, q{new}, q{nonew}, q{click}, q{offline} );
+    if ( $config{_}->{offline} ) {
+        $config{$_}->{offline} = 1 for keys %config;
+    }
     _check_icon( \%config, q{new} );
     _check_icon( \%config, q{nonew} );
     return \%config;
@@ -123,7 +126,7 @@ sub _values_to_scalar
 # ------------------------------------------------------------------------------
 sub _trim
 {
-    $_[0] =~ s/^\s+|\s+$//sm;
+    $_[0] =~ s/^\s+|\s+$//gsm;
     return $_[0];
 }
 
@@ -273,6 +276,8 @@ Valid config format:
     # Click is optional. 
     # NB! With "birdtray" use 'Click = birdtray -s' 
     Click = /usr/bin/thunderbird
+    # Offline for ALL sections:
+    Offline = 1
     New   = /path/to/icon
     NoNew = /path/to/icon
     # If New/NoNew empty, then the following icons will be used:
