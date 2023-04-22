@@ -294,6 +294,7 @@ Valid config format:
       Mailbox  = Job
       Mailbox  = Friends
       #...
+      # Offline = 1
 HELP
 
     printf "Invalid '%s' key in section [%s]\n", $value, $section if $section;
