@@ -124,6 +124,7 @@ sub _values_to_scalar
 }
 
 # ------------------------------------------------------------------------------
+## no critic (RequireArgUnpacking)
 sub _trim
 {
     $_[0] =~ s/^\s+|\s+$//gsm;

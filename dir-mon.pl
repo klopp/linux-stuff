@@ -133,6 +133,7 @@ while (1) {
 }
 
 # ------------------------------------------------------------------------------
+## no critic (RequireArgUnpacking)
 sub _check_access_time
 {
     CORE::state $guard = 0;
@@ -140,8 +141,8 @@ sub _check_access_time
 
     my ( $signal, $taccess ) = @_;
 
-    $signal and _d( 'call %s() from ALRM', ( caller(0) )[3] );
-    $signal or _d( 'call %s(%s) from inotify', ( caller(0) )[3], $taccess || q{?} );
+    $signal and _d( 'call %s() from ALRM', ( caller 0 )[3] );
+    $signal or _d( 'call %s(%s) from inotify', ( caller 0 )[3], $taccess || q{?} );
 
     my $tdiff = $taccess ? $taccess - $last_access : time - $last_access;
     if ( $tdiff > 0 ) {
@@ -382,12 +383,14 @@ sub _log
 }
 
 # ------------------------------------------------------------------------------
+## no critic (RequireArgUnpacking)
 sub _i
 {
     return ( $opt{quiet} or _log( q{-}, @_ ) );
 }
 
 # ------------------------------------------------------------------------------
+## no critic (RequireArgUnpacking)
 sub _d
 {
     return ( $opt{verbose} and _log( q{*}, @_ ) );
