@@ -72,26 +72,43 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-TOTAL=$(     cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemTotal:/{print $2}')
-FREE=$(      cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemFree:/{print $2}')
-CACHED=$(    cat /proc/meminfo | cut -d '.' -f1 | awk '/^Cached:/{print $2}')
-SHARED=$(    cat /proc/meminfo | cut -d '.' -f1 | awk '/^Shmem:/{print $2}')
-BUFFERS=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/^Buffers:/{print $2}')
-AVAILABLE=$( cat /proc/meminfo | cut -d '.' -f1 | awk '/^MemAvailable:/{print $2}')
-SW_TOTAL=$(  cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapTotal:/{print $2}')
-SW_FREE=$(   cat /proc/meminfo | cut -d '.' -f1 | awk '/^SwapFree:/{print $2}')
+function mem_fmt
+{
+    if [[ -n "${1}" ]]; then
+        echo $( numfmt --to iec --format "%.2f" $((${1} * 1024)) )
+    else
+        echo ""
+    fi
+}
+
+# ------------------------------------------------------------------------------
+TOTAL=""
+AVAILABLE=""
+FREE=""
+BUFFERS=""
+CACHED=""
+SHARED=""
+BUFFERS=""
+SW_TOTAL=""
+SW_FREE=""
+
+while read -r; do 
+    [ -n "${TOTAL}" ]     || TOTAL=$(awk '/^MemTotal:/{print $2}'         <<< ${REPLY})
+    [ -n "${AVAILABLE}" ] || AVAILABLE=$(awk '/^MemAvailable:/{print $2}' <<< ${REPLY})
+
+    [ -n "${FREE}" ]     || FREE=$(    mem_fmt $(awk '/^MemFree:/{print $2}'   <<< ${REPLY}))
+    [ -n "${BUFFERS}" ]  || BUFFERS=$( mem_fmt $(awk '/^Buffers:/{print $2}'   <<< ${REPLY}))
+    [ -n "${CACHED}" ]   || CACHED=$(  mem_fmt $(awk '/^Cached:/{print $2}'    <<< ${REPLY}))
+    [ -n "${SHARED}" ]   || SHARED=$(  mem_fmt $(awk '/^Shmem:/{print $2}'     <<< ${REPLY}))
+    [ -n "${SW_TOTAL}" ] || SW_TOTAL=$(mem_fmt $(awk '/^SwapTotal:/{print $2}' <<< ${REPLY}))
+    [ -n "${SW_FREE}" ]  || SW_FREE=$( mem_fmt $(awk '/^SwapFree:/{print $2}'  <<< ${REPLY}))
+done <<< $(cat /proc/meminfo)
 
 PERCENTAGE=$(( ((${TOTAL} - ${AVAILABLE}) * 100) / ${TOTAL} ))
 (( "${PERCENTAGE}" > "${PMAX}" )) && GREEN="red"
 
-TOTAL=$(     numfmt --to iec --format "%.2f" $(( ${TOTAL}     * 1024 )) )
-FREE=$(      numfmt --to iec --format "%.2f" $(( ${FREE}      * 1024 )) )
-CACHED=$(    numfmt --to iec --format "%.2f" $(( ${CACHED}    * 1024 )) )
-SHARED=$(    numfmt --to iec --format "%.2f" $(( ${SHARED}    * 1024 )) )
-BUFFERS=$(   numfmt --to iec --format "%.2f" $(( ${BUFFERS}   * 1024 )) )
-AVAILABLE=$( numfmt --to iec --format "%.2f" $(( ${AVAILABLE} * 1024 )) )
-SW_TOTAL=$(  numfmt --to iec --format "%.2f" $(( ${SW_TOTAL}  * 1024 )) )
-SW_FREE=$(   numfmt --to iec --format "%.2f" $(( ${SW_FREE}   * 1024 )) )
+TOTAL=$(mem_fmt ${TOTAL})
+AVAILABLE=$(mem_fmt ${AVAILABLE})
 
 TOOLTIP="┌ <span weight='bold'>RAM</span>\n";
 TOOLTIP+="├─ Total\t\t: ${TOTAL}\n"
