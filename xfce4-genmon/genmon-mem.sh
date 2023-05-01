@@ -82,16 +82,6 @@ function mem_fmt
 }
 
 # ------------------------------------------------------------------------------
-TOTAL=""
-AVAILABLE=""
-FREE=""
-BUFFERS=""
-CACHED=""
-SHARED=""
-BUFFERS=""
-SW_TOTAL=""
-SW_FREE=""
-
 while read -r; do 
     [ -n "${TOTAL}" ]     || TOTAL=$(awk '/^MemTotal:/{print $2}'         <<< ${REPLY})
     [ -n "${AVAILABLE}" ] || AVAILABLE=$(awk '/^MemAvailable:/{print $2}' <<< ${REPLY})
