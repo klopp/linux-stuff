@@ -11,12 +11,14 @@ use warnings;
 use Const::Fast;
 use Digest::MD5 qw/md5_hex/;
 use English qw/-no_match_vars/;
-use Fcntl qw/:DEFAULT :flock SEEK_SET/;
+use Fcntl qw/:DEFAULT :flock/;
 use File::Basename qw/basename/;
 use File::Which;
 use Getopt::Long qw/GetOptions/;
 use IPC::Open2;
 use IPC::Run qw/start/;
+use Lock::Socket qw/try_lock_socket/;
+use Net::EmptyPort qw/empty_port/;
 use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
@@ -49,8 +51,8 @@ if ( !$inotifywait ) {
 
 # ------------------------------------------------------------------------------
 GetOptions(
-    \%opt,         'path|p=s',    'timeout|t=s', 'interval|i=s', 'exec|e=s', 'fork|f',
-    'lockdir|l=s', 'dry|dry-run', 'quiet|q',     'debug|d',      'help|h|?', 'x|exit',
+    \%opt,         'path|p=s',  'timeout|t=s', 'interval|i=s', 'exec|e=s', 'fork|f',
+    'lockdir|l=s', 'd|dry-run', 'quiet|q',     'verbose|v',    'help|h|?', 'x|exit',
     'xx',
 );
 _check_opt() or _usage();
@@ -63,7 +65,24 @@ for (@EXECUTABLE) {
 
 my $LOCKFILE = sprintf '%s/%s.%s', $opt{lockdir}, $EXE_NAME, md5_hex( $opt{path}, $opt{exec} );
 local $OUTPUT_AUTOFLUSH = 1;
-my $lock = _check_self_instance();
+
+my $lock = _lock_instance($LOCKFILE);
+if ( $lock->{errno} ) {
+    if ( $lock->{reason} eq 'open' ) {
+        _log( q{!}, 'Can not open file "%s" (%s)!', $LOCKFILE, $lock->{errno} );
+    }
+    elsif ( $lock->{reason} eq 'lock' ) {
+        _log( q{!}, 'Can not lock process on port %u (%s)!', $lock->{port}, $lock->{errno} );
+    }
+    elsif ( $lock->{reason} eq 'write' ) {
+        _log( q{!}, 'Can not write file "%s" (%s)!', $LOCKFILE, $lock->{errno} );
+    }
+    else {
+        _log( q{!}, 'Unknown error reason (%s)!', $lock->{errno} );
+    }
+    $cpid = $PID;
+    exit 1;
+}
 
 if ( $opt{fork} ) {
     _log( q{!}, 'Start deamonized...' );
@@ -75,11 +94,8 @@ if ( $opt{fork} ) {
     umask 0;
     chdir q{/};
     close *{STDIN};
-    print {$lock} "$PID\n";
-    close $lock;
 }
 else {
-    close $lock;
     _log( q{!}, 'Start...' );
 }
 
@@ -132,14 +148,14 @@ sub _check_access_time
         _d( 'No activity for %u sec.', $tdiff );
         if ( $tdiff >= $opt{timeout} ) {
             _i( 'Timeout :: %u seconds!', $tdiff );
-            if ( $opt{debug} or $opt{dry} ) {
+            if ( $opt{verbose} or $opt{d} ) {
                 _log( q{!}, 'Run %s...', join q{ }, @EXECUTABLE );
             }
             else {
                 _i( 'Run %s...', join q{ }, @EXECUTABLE );
             }
             my ( $rc, $out, $err ) = (-1);
-            if ( !$opt{dry} ) {
+            if ( !$opt{d} ) {
                 my $h = start \@EXECUTABLE, sub { }, \$out, \$err;
                 $h->finish;
                 $rc = $h->full_result;
@@ -256,18 +272,17 @@ sub _usage
 
 Usage: %s [options], where options are:
 
-    -?, -h, -help       this message
-    -p, -path     PATH  directory to watch (required, see *)
-    -t, -timeout  SEC   activity timeout (seconds, >= 10, default: %u)
-    -i, -interval SEC   poll interval (seconds, >10 and <= 60, default: %u)
-    -e, -exec     PATH  execute on activity timeout (required, see *)
-    -l, -lockdir  PATH  lock file directory, default: %s
-    -f, -fork           fork and daemonize, STDOUT and STDERR must be redirected
-    -q, -quiet          be quiet
-    -d, -debug          print debug info
-    -dry, dry-run       do not run executable, print command line only
-    -x, -exit           exit after SUCCESS external process (-e) result (**)
-    -xx                 exit after ANY external process result (**)
+    -p, --path=PATH    directory to watch (required, see *)
+    -t, --timeout=SEC  activity timeout (seconds, >= 10, default: %u)
+    -i, --interval=SEC poll interval (seconds, >10 and <= 60, default: %u)
+    -e, --exec=PATH    execute on activity timeout (required, see *)
+    -l, --lockdir=PATH lock file directory, default: %s
+    -f, --fork         fork and daemonize, STDOUT and STDERR must be redirected
+    -q, --quiet        be quiet
+    -v, --verbose      print debug info
+    -d, --dry-run      do not run executable, print command line only
+    -x, --exit         exit after SUCCESS external process (-e) result (**)
+    -xx                exit after ANY external process result (**)
 
 *   __PATH__ and __HOME__ substrings will be rplaced by "-p" and $HOME values.
 **  Always use -x or -xx if the directory will be unmounted by executable call.
@@ -304,32 +319,30 @@ sub _signal_x
 }
 
 # ------------------------------------------------------------------------------
-sub _check_self_instance
+sub _lock_instance
 {
-    my ( $pid, $fh );
-    if ( !sysopen( $fh, $LOCKFILE, O_RDWR | O_CREAT ) || !flock( $fh, LOCK_EX ) ) {
-        _log( q{!}, 'Error writing lock file "%s" (%s)!', $LOCKFILE, _trim($ERRNO) );
-        $fh and close $fh;
+    my ($lockfile) = @_;
 
-        # supress exit message:
-        $cpid = $PID;
-        exit 1;
-
+    my ( $lock, $port, $fh );
+    if ( !sysopen $fh, $lockfile, O_RDWR | O_CREAT ) {
+        return { reason => 'open', errno => $ERRNO, };
     }
-    $pid = _trim(<$fh>);
-    if ( $pid and $pid =~ /^\d+$/sm and kill 0 => $pid ) {
-        _log( q{!}, 'Active instance (PID: %s) found!', $pid );
+    binmode $fh;
+    sysread $fh, $port, 64;
+    $port and $port =~ s/^\s+|\s+$//gsm;
+    if ( !$port || $port !~ /^\d+$/sm ) {
+        $port = empty_port();
+    }
+    if ( !( $lock = try_lock_socket($port) ) ) {
         close $fh;
-
-        # supress exit message:
-        $cpid = $PID;
-        exit 1;
+        return { port => $port, reason => 'lock', errno => $ERRNO, };
     }
-    $fh->autoflush(1);
-    sysseek $fh, 0, SEEK_SET;
-    print {$fh} "$PID\n";
-    sysseek $fh, 0, SEEK_SET;
-    return $fh;
+    if ( !flock( $fh, LOCK_EX ) || !truncate( $fh, 0 ) || !syswrite( $fh, $port, length $port ) ) {
+        close $fh;
+        return { reason => 'write', errno => $ERRNO, };
+    }
+    close $fh;
+    return $lock;
 }
 
 # ------------------------------------------------------------------------------
@@ -377,7 +390,7 @@ sub _i
 # ------------------------------------------------------------------------------
 sub _d
 {
-    return ( $opt{debug} and _log( q{*}, @_ ) );
+    return ( $opt{verbose} and _log( q{*}, @_ ) );
 }
 
 # ------------------------------------------------------------------------------
