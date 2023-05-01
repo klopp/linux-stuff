@@ -72,7 +72,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ------------------------------------------------------------------------------
-function mem_fmt
+function size_fmt
 {
     if [[ -n "${1}" ]]; then
         echo $( numfmt --to iec --format "%.2f" $((${1} * 1024)) )
@@ -86,19 +86,19 @@ while read -r; do
     [ -n "${TOTAL}" ]     || TOTAL=$(awk '/^MemTotal:/{print $2}'         <<< ${REPLY})
     [ -n "${AVAILABLE}" ] || AVAILABLE=$(awk '/^MemAvailable:/{print $2}' <<< ${REPLY})
 
-    [ -n "${FREE}" ]     || FREE=$(    mem_fmt $(awk '/^MemFree:/{print $2}'   <<< ${REPLY}))
-    [ -n "${BUFFERS}" ]  || BUFFERS=$( mem_fmt $(awk '/^Buffers:/{print $2}'   <<< ${REPLY}))
-    [ -n "${CACHED}" ]   || CACHED=$(  mem_fmt $(awk '/^Cached:/{print $2}'    <<< ${REPLY}))
-    [ -n "${SHARED}" ]   || SHARED=$(  mem_fmt $(awk '/^Shmem:/{print $2}'     <<< ${REPLY}))
-    [ -n "${SW_TOTAL}" ] || SW_TOTAL=$(mem_fmt $(awk '/^SwapTotal:/{print $2}' <<< ${REPLY}))
-    [ -n "${SW_FREE}" ]  || SW_FREE=$( mem_fmt $(awk '/^SwapFree:/{print $2}'  <<< ${REPLY}))
+    [ -n "${FREE}" ]     || FREE=$(    size_fmt $(awk '/^MemFree:/{print $2}'   <<< ${REPLY}))
+    [ -n "${BUFFERS}" ]  || BUFFERS=$( size_fmt $(awk '/^Buffers:/{print $2}'   <<< ${REPLY}))
+    [ -n "${CACHED}" ]   || CACHED=$(  size_fmt $(awk '/^Cached:/{print $2}'    <<< ${REPLY}))
+    [ -n "${SHARED}" ]   || SHARED=$(  size_fmt $(awk '/^Shmem:/{print $2}'     <<< ${REPLY}))
+    [ -n "${SW_TOTAL}" ] || SW_TOTAL=$(size_fmt $(awk '/^SwapTotal:/{print $2}' <<< ${REPLY}))
+    [ -n "${SW_FREE}" ]  || SW_FREE=$( size_fmt $(awk '/^SwapFree:/{print $2}'  <<< ${REPLY}))
 done <<< $(cat /proc/meminfo)
 
 PERCENTAGE=$(( ((${TOTAL} - ${AVAILABLE}) * 100) / ${TOTAL} ))
 (( "${PERCENTAGE}" > "${PMAX}" )) && GREEN="red"
 
-TOTAL=$(mem_fmt ${TOTAL})
-AVAILABLE=$(mem_fmt ${AVAILABLE})
+TOTAL=$(    size_fmt "${TOTAL}")
+AVAILABLE=$(size_fmt "${AVAILABLE}")
 
 TOOLTIP="┌ <span weight='bold'>RAM</span>\n";
 TOOLTIP+="├─ Total\t\t: ${TOTAL}\n"

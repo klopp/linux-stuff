@@ -96,6 +96,16 @@ if [ -z "${DEV}" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+function size_fmt
+{
+    if [[ -n "${1}" ]]; then
+        echo $( numfmt --to iec --format "%.2f" $((${1} * 1024)) )
+    else
+        echo "?"
+    fi
+}
+
+# ------------------------------------------------------------------------------
 TEMPERATURE=$( check_int $(sudo smartctl -A /dev/${DEV} | grep -i temperature | awk '{print $10}') )
 if ((${TEMPERATURE} == 0 )); then
     TEMPERATURE="?"
@@ -103,17 +113,17 @@ if ((${TEMPERATURE} == 0 )); then
 elif [ "${TEMPERATURE}" -gt "${TMAX}" ]; then
     GREEN="red"
 fi
-
-USED=$(  check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $3}') )
-TOTAL=$( check_int $(df ${PART} 2>&1 | awk '/\/dev/{print $2}') )
+read TOTAL USED <<< $(df ${PART} 2>&1 | awk '/\/dev/{print $2" "$3}')
+TOTAL=$(check_int "${TOTAL}")
+USED=$( check_int "${USED}" )
 FREE="?"
 
 if (( ${USED} < ${TOTAL} )); then 
     PERCENTAGE=$(( ${USED} * 100 / ${TOTAL} ))
     FREE=$(( ${TOTAL} - ${USED} ))
-    TOTAL=$( numfmt --to iec --format "%.2f" $(( ${TOTAL} * 1024 )) )
-    USED=$(  numfmt --to iec --format "%.2f" $(( ${USED}  * 1024 )) )
-    FREE=$(  numfmt --to iec --format "%.2f" $(( ${FREE}  * 1024 )) )
+    TOTAL=$( size_fmt "${TOTAL}" )
+    USED=$(  size_fmt "${USED}"  )
+    FREE=$(  size_fmt "${FREE}"  )
 else
     PERCENTAGE="?"
     TOTAL="?"
