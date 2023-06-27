@@ -66,10 +66,10 @@ if ( $watcher->error ) {
     exit 1;
 }
 
-my $lock = Things::Instance::LockSock->new->lock( file => $LOCKFILE );
+my $lock = Things::Instance::LockSock->new->lock( $LOCKFILE, $opt{fork} );
 
-if ( $lock->{errno} ) {
-    _log( q{!}, '%s', $lock->{msg} );
+if ( $lock->{error} ) {
+    _log( q{!}, '%s', $lock->{error} );
     $cpid = $PID;
     exit 1;
 }
@@ -84,6 +84,8 @@ if ( $opt{fork} ) {
     umask 0;
     chdir q{/};
     close *{STDIN};
+    syswrite $lock->{fh}, $PID . "\n";
+    close $lock->{fh};
 }
 else {
     _log( q{!}, 'Start...' );
@@ -244,7 +246,7 @@ sub _signal_x
 # ------------------------------------------------------------------------------
 END {
     $cpid or _log( q{!}, 'Stop all jobs and exit...' );
-    $LOCKFILE and unlink $LOCKFILE;
+    #$LOCKFILE and unlink $LOCKFILE;
 }
 
 # ------------------------------------------------------------------------------
