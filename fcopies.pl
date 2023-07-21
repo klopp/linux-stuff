@@ -66,7 +66,7 @@ Search for copies of the specified file (-f) in paths (-p).
 Print errors if the -q switch is not specified.
 Symbolic link processing is disabled by default, use the -s switch to enable it.
 Use the alternative search algorithm by -a key.
-Default file digest id \MD5', set it by -d key.
+Default file digest is 'MD5', set it by -d key.
  
 USAGE
     printf $USAGE, basename($PROGRAM_NAME);
