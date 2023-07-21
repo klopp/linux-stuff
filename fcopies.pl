@@ -6,6 +6,7 @@ use warnings;
 
 # ------------------------------------------------------------------------------
 use Capture::Tiny qw/capture_stderr/;
+use Const::Fast;
 use English qw/-no_match_vars/;
 use File::Basename qw/basename/;
 use Getopt::Long qw/GetOptions/;
@@ -15,36 +16,43 @@ use Path::Tiny;
 our $VERSION = 'v1.00';
 
 # ------------------------------------------------------------------------------
-my ( $file_md5, $find_file, $follow_symlinks, $quiet, @paths );
-GetOptions( 'p=s' => \@paths, 'f=s' => \$find_file, 'h|?' => \&_usage, q{s} => \$follow_symlinks, q{q} => \$quiet );
-( @paths > 0 and $find_file ) or _usage();
-my $file_path = path($find_file);
-if ( !$file_path->exists ) {
-    printf "Can not find file \"%s\".\n", $find_file;
+my ( $dtype, @paths, $file, $algo, $quiet ) = ('MD5');
+my %ropts = ( error_handler => undef, follow_symlinks => undef );
+GetOptions(
+    'p=s' => \@paths,
+    'd=s' => \$dtype,
+    'f=s' => \$file,
+    'h|?' => \&_usage,
+    q{a}  => \$algo,
+    q{s}  => \$ropts{follow_symlinks},
+    q{q}  => \$quiet,
+);
+( @paths > 0 and $file ) or _usage();
+my $path = path($file);
+if ( !$path->exists ) {
+    printf "Can not find file \"%s\".\n", $file;
     exit 2;
 }
-my $file_digest = $file_path->digest;
-my $rule        = Path::Iterator::Rule->new;
-$rule->file->size( $file_path->size );
+my $digest = $path->digest($dtype);
+my $rule   = Path::Iterator::Rule->new;
+$rule->file->size( $path->size );
 $rule->and(
     sub {
-        return path( $_[0] )->digest eq $file_digest;
+        return path( $_[0] )->digest($dtype) eq $digest;
     }
 );
 
 if ($quiet) {
-    capture_stderr \&_find;
+    capture_stderr \&_search;
 }
 else {
-    _find();
+    _search();
 }
 
 # ------------------------------------------------------------------------------
-sub _find
+sub _search
 {
-    for my $file ( $rule->all( @paths, { error_handler => undef, follow_symlinks => $follow_symlinks } ) ) {
-        printf "%s\n", $file;
-    }
+    printf "%s\n", $_ for $algo ? $rule->all( @paths, \%ropts ) : $rule->all_fast( @paths, \%ropts );
 }
 
 # ------------------------------------------------------------------------------
@@ -52,12 +60,14 @@ sub _usage
 {
     CORE::state $USAGE = <<'USAGE';
 
-Search for copies of the specified file (-f) in paths (-p, there may be several).
+Usage: %s -p PATH [-p PATH ...] -f FILE [-s] [-q] [-a] [-d DIGEST]
+
+Search for copies of the specified file (-f) in paths (-p).
 Print errors if the -q switch is not specified.
 Symbolic link processing is disabled by default, use the -s switch to enable it.
+Use the alternative search algorithm by -a key.
+Default file digest id \MD5', set it by -d key.
  
-Usage: %s -p PATH [-p PATH ...] -f FILE [-s] [-q]
-
 USAGE
     printf $USAGE, basename($PROGRAM_NAME);
     exit 1;
