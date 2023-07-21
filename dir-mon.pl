@@ -66,7 +66,7 @@ if ( $watcher->error ) {
     exit 1;
 }
 
-my $lock = Things::Instance::LockSock->new->lock( $LOCKFILE, $opt{fork} );
+my $lock = Things::Instance::LockSock->new( $LOCKFILE, $opt{fork} )->lock();
 
 if ( $lock->{error} ) {
     _log( q{!}, '%s', $lock->{error} );
