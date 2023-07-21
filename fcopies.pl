@@ -12,6 +12,8 @@ use Getopt::Long qw/GetOptions/;
 use Path::Iterator::Rule;
 use Path::Tiny;
 
+our $VERSION = 'v1.00';
+
 # ------------------------------------------------------------------------------
 my ( $file_md5, $find_file, $follow_symlinks, $quiet, @paths );
 GetOptions( 'p=s' => \@paths, 'f=s' => \$find_file, 'h|?' => \&_usage, q{s} => \$follow_symlinks, q{q} => \$quiet );
