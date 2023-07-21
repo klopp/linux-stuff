@@ -52,8 +52,9 @@ sub _usage
 {
     CORE::state $USAGE = <<'USAGE';
 
-Search for copies of the specified file. 
-By default symlinks handling if OFF, use -s key to turn ON.
+Search for copies of the specified file (-f) in paths (-p, there may be several).
+Print errors if the -q switch is not specified.
+Symbolic link processing is disabled by default, use the -s switch to enable it.
  
 Usage: %s -p PATH [-p PATH ...] -f FILE [-s] [-q]
 
