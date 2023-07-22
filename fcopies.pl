@@ -16,23 +16,32 @@ use Path::Tiny;
 our $VERSION = 'v1.00';
 
 # ------------------------------------------------------------------------------
-my ( $dtype, @paths, $file, $algo, $quiet ) = ('MD5');
-my %ropts = ( error_handler => undef, follow_symlinks => undef );
+my ( $dtype, @paths, $file, $quiet ) = ('MD5');
+my %ropts = ( sorted => 0, error_handler => undef, follow_symlinks => undef );
 GetOptions(
     'p=s' => \@paths,
     'd=s' => \$dtype,
     'f=s' => \$file,
     'h|?' => \&_usage,
-    q{a}  => \$algo,
     q{s}  => \$ropts{follow_symlinks},
     q{q}  => \$quiet,
 );
-( @paths > 0 and $file ) or _usage();
-my $path = path($file);
-if ( !$path->exists ) {
-    printf "Can not find file \"%s\".\n", $file;
+
+$file or _usage();
+if ( !-f $file ) {
+    printf "Not regular file: \"%s\".\n", $file;
     exit 2;
 }
+my $npaths = scalar @paths;
+for( @paths ) {
+    -d or --$npaths;
+}
+if( !$npaths ) {
+    print "No valid paths found.\n";
+    exit 3;
+}
+
+my $path   = path($file);
 my $digest = $path->digest($dtype);
 my $rule   = Path::Iterator::Rule->new;
 $rule->file->size( $path->size );
@@ -52,7 +61,7 @@ else {
 # ------------------------------------------------------------------------------
 sub _search
 {
-    printf "%s\n", $_ for $algo ? $rule->all( @paths, \%ropts ) : $rule->all_fast( @paths, \%ropts );
+    printf "%s\n", $_ for $rule->all_fast( @paths, \%ropts );
 }
 
 # ------------------------------------------------------------------------------
@@ -60,12 +69,11 @@ sub _usage
 {
     CORE::state $USAGE = <<'USAGE';
 
-Usage: %s -p PATH [-p PATH ...] -f FILE [-s] [-q] [-a] [-d DIGEST]
+Usage: %s -p PATH [-p PATH ...] -f FILE [-s] [-q] [-d DIGEST]
 
 Search for copies of the specified file (-f) in paths (-p).
 Print errors if the -q switch is not specified.
 Symbolic link processing is disabled by default, use the -s switch to enable it.
-Use the alternative search algorithm by -a key.
 Default file digest is 'MD5', set it by -d key.
  
 USAGE
