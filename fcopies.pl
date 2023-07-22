@@ -29,7 +29,7 @@ GetOptions(
 );
 ( @paths > 0 and $file ) or _usage();
 my $path = path($file);
-if ( !$path->exists ) {
+if ( !$path->is_file ) {
     printf "Can not find file \"%s\".\n", $file;
     exit 2;
 }
