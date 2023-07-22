@@ -17,8 +17,7 @@ our $VERSION = 'v1.00';
 
 # ------------------------------------------------------------------------------
 my ( $dtype, @paths, $file, $quiet ) = ('MD5');
-my %ropts
-    = ( sorted => 0, error_handler => undef, follow_symlinks => undef );
+my %ropts = ( sorted => 0, error_handler => undef, follow_symlinks => undef );
 GetOptions(
     'p=s' => \@paths,
     'd=s' => \$dtype,
@@ -27,12 +26,22 @@ GetOptions(
     q{s}  => \$ropts{follow_symlinks},
     q{q}  => \$quiet,
 );
-( @paths > 0 and $file ) or _usage();
-my $path = path($file);
-if ( !$path->is_file ) {
-    printf "Can not find file \"%s\".\n", $file;
+
+$file or _usage();
+if ( !-f $file ) {
+    printf "Not regular file: \"%s\".\n", $file;
     exit 2;
 }
+my $npaths = scalar @paths;
+for( @paths ) {
+    -d or --$npaths;
+}
+if( !$npaths ) {
+    print "No valid paths found.\n";
+    exit 3;
+}
+
+my $path   = path($file);
 my $digest = $path->digest($dtype);
 my $rule   = Path::Iterator::Rule->new;
 $rule->file->size( $path->size );
