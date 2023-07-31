@@ -102,7 +102,7 @@ sub _load_config
     $config{_}->{click} //= 'true';
     _values_to_scalar( $config{_}, q{new}, q{nonew}, q{click}, q{offline} );
     if ( $config{_}->{offline} ) {
-        $config{$_}->{offline} = 1 for keys %config;
+        defined $config{$_}->{offline} or $config{$_}->{offline} = 1 for keys %config;
     }
     _check_icon( \%config, q{new} );
     _check_icon( \%config, q{nonew} );
