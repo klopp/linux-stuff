@@ -47,7 +47,7 @@ for ( sort keys %data ) {
         $tooltip .= sprintf "└─ <span fgcolor='red'>%s</span>\n", _trim( $mailboxes->{_} );
         next;
     }
-
+# TODO :: use ordered hash
     my @mkeys = sort keys %{$mailboxes};
     while (@mkeys) {
         my $mbox   = shift @mkeys;
