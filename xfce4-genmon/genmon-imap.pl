@@ -6,6 +6,7 @@ use open qw/:std :utf8/;
 use Modern::Perl;
 
 # ------------------------------------------------------------------------------
+use Array::OrdHash;
 use Config::Find;
 use Config::Std;
 use Const::Fast;
@@ -30,6 +31,7 @@ const my $TPL         => '<click>%s &> /dev/null</click><img>%s</img><tool>%s</t
 _usage() if $ARGV[0] && ( $ARGV[0] eq '-h' || $ARGV[0] eq '--help' );
 
 my $cfg = _load_config();
+
 my %data;
 while ( my ( $section, $imap ) = each %{$cfg} ) {
     next if $section eq q{_};
@@ -47,8 +49,7 @@ for ( sort keys %data ) {
         $tooltip .= sprintf "└─ <span fgcolor='red'>%s</span>\n", _trim( $mailboxes->{_} );
         next;
     }
-# TODO :: use ordered hash
-    my @mkeys = sort keys %{$mailboxes};
+    my @mkeys = keys %{$mailboxes};
     while (@mkeys) {
         my $mbox   = shift @mkeys;
         my $tchar  = @mkeys > 0 ? '├─' : '└─';
@@ -149,11 +150,11 @@ sub _check_mailboxes
 {
     my ($section) = @_;
 
-    my %mailboxes;
+    my $mailboxes = Array::OrdHash->new;
 
     if ( $section->{offline} ) {
-        $mailboxes{_} = 'offline';
-        return \%mailboxes;
+        $mailboxes->{_} = 'offline';
+        return $mailboxes;
     }
 
     my $imap = Mail::IMAPClient->new(
@@ -164,8 +165,8 @@ sub _check_mailboxes
         ssl      => 1,
     );
     if ( !$imap ) {
-        $mailboxes{_} = $EVAL_ERROR;
-        return \%mailboxes;
+        $mailboxes->{_} = $EVAL_ERROR;
+        return $mailboxes;
     }
 
     my $folders = $imap->folders;
@@ -181,10 +182,10 @@ sub _check_mailboxes
             my $error = $imap->LastError;
             $error and $unseen = $error;
         }
-        $mailboxes{$box} = $unseen;
+        $mailboxes->{$box} = $unseen;
     }
     $imap->logout;
-    return \%mailboxes;
+    return $mailboxes;
 }
 
 # ------------------------------------------------------------------------------
