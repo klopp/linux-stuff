@@ -12,8 +12,14 @@ use File::Basename qw/basename/;
 use Getopt::Long qw/GetOptions/;
 use Path::Iterator::Rule;
 use Path::Tiny;
+use Try::Catch;
 
 our $VERSION = 'v1.00';
+const my $EXIT_OK    => 0;
+const my $EXIT_USAGE => 1;
+const my $ERR_FILE   => 2;
+const my $ERR_PATHS  => 3;
+const my $ERR_DIGEST => 4;
 
 # ------------------------------------------------------------------------------
 my ( $dtype, @paths, $file, $namematch, $quiet ) = ('MD5');
@@ -31,7 +37,7 @@ GetOptions(
 $file or _usage();
 if ( !-f $file ) {
     printf "Not regular file: \"%s\".\n", $file;
-    exit 2;
+    exit $ERR_FILE;
 }
 my $npaths = scalar @paths;
 for (@paths) {
@@ -39,16 +45,23 @@ for (@paths) {
 }
 if ( !$npaths ) {
     print "No valid paths found.\n";
-    exit 3;
+    exit $ERR_PATHS;
 }
 
-my $path   = path($file);
-my $digest = $path->digest($dtype);
-my $rule   = Path::Iterator::Rule->new;
+my $path = path($file);
+my $rule = Path::Iterator::Rule->new;
 if ($namematch) {
     $rule->name( $path->basename );
 }
 else {
+    my $digest;
+    try {
+        $digest = $path->digest($dtype);
+    }
+    catch {
+        printf "Invalid digest value: \"%s\".\n", $dtype;
+        exit $ERR_DIGEST;
+    };
     $rule->file->size( $path->size );
     $rule->and(
         sub {
@@ -63,11 +76,12 @@ if ($quiet) {
 else {
     _search();
 }
+exit $EXIT_OK;
 
 # ------------------------------------------------------------------------------
 sub _search
 {
-    printf "%s\n", $_ for $rule->all_fast( @paths, \%ropts );
+    return printf "%s\n", $_ for $rule->all_fast( @paths, \%ropts );
 }
 
 # ------------------------------------------------------------------------------
@@ -85,7 +99,7 @@ Match only base name of file if -n key is specified.
  
 USAGE
     printf $USAGE, basename($PROGRAM_NAME);
-    exit 1;
+    exit $EXIT_USAGE;
 }
 
 # ------------------------------------------------------------------------------
