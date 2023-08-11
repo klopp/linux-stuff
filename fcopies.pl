@@ -42,13 +42,13 @@ if ( !$npaths ) {
     exit 3;
 }
 
-my $path   = path($file);
-my $digest = $path->digest($dtype);
-my $rule   = Path::Iterator::Rule->new;
+my $path = path($file);
+my $rule = Path::Iterator::Rule->new;
 if ($namematch) {
     $rule->name( $path->basename );
 }
 else {
+    my $digest = $path->digest($dtype);
     $rule->file->size( $path->size );
     $rule->and(
         sub {
