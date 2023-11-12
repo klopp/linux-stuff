@@ -18,7 +18,7 @@ use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
 
-use Things::I2S;
+use Things::I2MS;
 use Things::Inotify;
 use Things::Instance::LockSock;
 use Things::Trim;
