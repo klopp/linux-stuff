@@ -20,9 +20,10 @@ const my $EXIT_USAGE => 1;
 const my $ERR_FILE   => 2;
 const my $ERR_PATHS  => 3;
 const my $ERR_DIGEST => 4;
+const my $DEF_DIGEST => 'MD5';
 
 # ------------------------------------------------------------------------------
-my ( $dtype, @paths, $file, $namematch, $quiet ) = ('MD5');
+my ( $dtype, @paths, $file, $namematch, $quiet ) = ($DEF_DIGEST);
 my %ropts = ( sorted => 0, error_handler => undef, follow_symlinks => undef );
 GetOptions(
     'p=s' => \@paths,
