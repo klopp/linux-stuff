@@ -18,7 +18,6 @@ use POSIX qw/:sys_wait_h strftime setsid/;
 use Proc::Killfam;
 use Text::ParseWords qw/quotewords/;
 
-use Things::I2MS;
 use Things::Inotify;
 use Things::Instance::LockSock;
 use Things::Trim;
@@ -181,10 +180,8 @@ sub _check_opt
     if ( $opt{lockdir} && !-d $opt{lockdir} ) {
         return _opt_error('lock');
     }
-    $opt{interval} = interval_to_seconds( $opt{interval} );
-    $opt{timeout}  = interval_to_seconds( $opt{timeout} );
-    $opt{interval} or return _opt_error('interval');
-    $opt{timeout}  or return _opt_error('timeout');
+    ( $opt{interval} && $opt{interval} =~ /^\d+$/ ) or return _opt_error('interval');
+    ( $opt{timeout}  && $opt{timeout}  =~ /^\d+$/ ) or return _opt_error('timeout');
     ( $opt{interval} < 10 || $opt{interval} > 60 ) and return _opt_error('interval');
     $opt{timeout} > 10 or return _opt_error('timeout');
     return 1;
@@ -246,6 +243,7 @@ sub _signal_x
 # ------------------------------------------------------------------------------
 END {
     $cpid or _log( q{!}, 'Stop all jobs and exit...' );
+
     #$LOCKFILE and unlink $LOCKFILE;
 }
 
