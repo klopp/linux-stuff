@@ -45,7 +45,7 @@ See `-?`, `-h`, `-help`.
 
 The same, but in pure `bash`.
 
-## tray-run
+## [tray-run](tray-run/)
 
 Запускалка программ из трея. Подробности в [тамошнем README](./tray-run/README.md).
 
