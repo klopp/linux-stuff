@@ -1,0 +1,5 @@
+Exec    ~/bin/netcam-motion/netcam-motion.pl
+On      i/6-on.png
+Off     i/6-off.png
+Active  Off
+Kill    TERM
