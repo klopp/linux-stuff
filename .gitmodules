@@ -1,0 +1,3 @@
+[submodule "tray-run"]
+	path = tray-run
+	url = git@github.com:klopp/tray-run.git
