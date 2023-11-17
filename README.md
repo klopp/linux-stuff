@@ -45,6 +45,10 @@ See `-?`, `-h`, `-help`.
 
 The same, but in pure `bash`.
 
+## tray-run
+
+Запускалка программ из трея. Подробности в [тамошнем README](./tray-run/README.md).
+
 ## [xfce4-genmon](xfce4-genmon/)
 
 Скрипты для [xfce4-genmon-plugin](https://docs.xfce.org/panel-plugins/xfce4-genmon-plugin/start).
