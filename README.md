@@ -45,9 +45,9 @@ See `-?`, `-h`, `-help`.
 
 The same, but in pure `bash`.
 
-## [tray-run](tray-run/)
+## [tray-run](https://github.com/klopp/tray-run/)
 
-Запускалка программ из трея. Подробности в [тамошнем README](./tray-run/README.md).
+Запускалка программ из трея. Подробности в [тамошнем README](https://github.com/klopp/tray-run/README.md).
 
 ## [xfce4-genmon](xfce4-genmon/)
 
