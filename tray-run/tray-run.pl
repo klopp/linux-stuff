@@ -28,8 +28,7 @@ our $VERSION = '1.0';
 
 # ------------------------------------------------------------------------------
 my $pid;
-my $config = $ARGV[0] || q{*};
-my $cfg    = Things::Config::Std->new( file => $config, nocase => 1 );
+my $cfg    = Things::Config::Std->new( file => $ARGV[0] || q{*}, nocase => 1 );
 $cfg->error and Carp::croak sprintf 'FATAL :: %s', $cfg->error;
 my $exec  = _cget('Exec');
 my $kill  = $cfg->get('kill');
@@ -51,11 +50,12 @@ $trayicon->set_tooltip_text("Left click: execute/stop\nRight click: stop and exi
 $trayicon->signal_connect(
     'button_press_event' => sub {
         my ( undef, $event ) = @_;
-        if ( $event->button eq 3 ) {
+
+        if ( $event->button == 3 ) {
             _stop();
             Gtk3->main_quit;
         }
-        elsif ( $event->button eq 1 ) {
+        elsif ( $event->button == 1 ) {
             _switch_state();
         }
         1;
@@ -93,12 +93,13 @@ sub _icon
 sub _stop
 {
     $pid and killfam $kill, $pid;
+    return;
 }
 
 # ------------------------------------------------------------------------------
 sub _start
 {
-    $pid = fork();
+    $pid = fork;
     if ( !defined $pid ) {
         Carp::croak sprintf 'Fork error :: %s', $ERRNO;
     }
@@ -116,6 +117,7 @@ sub _start
             undef $pid;
         }
     }
+    return;
 }
 
 # ------------------------------------------------------------------------------
@@ -130,6 +132,7 @@ sub _switch_state
         _start();
     }
     $state ^= 1;
+    return;
 }
 
 # ------------------------------------------------------------------------------
