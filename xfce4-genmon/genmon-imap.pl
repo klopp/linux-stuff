@@ -14,11 +14,14 @@ use Encode qw/decode_utf8/;
 use Encode::IMAPUTF7;
 use English qw/-no_match_vars/;
 use File::Basename;
+use File::Path qw/make_path/;
 use File::Spec;
 use List::MoreUtils qw/none/;
 use Mail::IMAPClient;
 use Path::ExpandTilde;
 use Try::Tiny;
+
+use DDP;
 
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
@@ -169,17 +172,35 @@ sub _check_mailboxes
         return $mailboxes;
     }
 
+    $imap->Peek(1);
     my $folders = $imap->folders;
     $_ = Encode::IMAPUTF7::decode( 'IMAP-UTF-7', $_ ) for @{$folders};
     for ( @{ $section->{mailbox} } ) {
         my $box = decode_utf8($_);
-        my $unseen;
+
+        my ( $unseen, $error );
         if ( none { $_ eq $box } @{$folders} ) {
             $unseen = 'invalid mailbox';
         }
         else {
-            $unseen = $imap->unseen_count( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) // 0;
-            my $error = $imap->LastError;
+            if ( $imap->select( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) ) {
+                $unseen = $imap->unseen();
+                if ($unseen) {
+                    if( $section->{savepath} ) {
+                        for ( @{$unseen} ) {
+                            my $file = sprintf '%s/mail.%s', $section->{savepath}, $_;
+                            -f $file or $imap->message_to_file( $file, $_ );
+                        }
+                    }
+                    $unseen = scalar @{$unseen};
+                }
+                else {
+                    $error = $imap->LastError;
+                }
+            }
+            else {
+                $error = $imap->LastError;
+            }
             $error and $unseen = $error;
         }
         $mailboxes->{$box} = $unseen;
@@ -233,6 +254,15 @@ sub _check_imap_section
     _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
 
     _values_to_scalar( $content, q{host}, q{user}, q{password} );
+
+    if( $content->{savepath} ) {
+        $content->{savepath} = expand_tilde( $content->{savepath} );
+        if( !-d $content->{savepath} ) {
+            make_path( $content->{savepath} ) 
+                or Carp::confess 
+                sprintf '[%s] :: can not create "%s"', $section, $content->{savepath};
+        }
+    }
 
     return $content;
 }
@@ -301,7 +331,10 @@ Valid config format:
       Mailbox  = Job
       Mailbox  = Friends
       #...
-      # Offline = 1
+      # Offline  = 1
+      #
+      # Path to save new messages:
+      # SavePath = ~/mail/yandex
 HELP
 
     printf "Invalid '%s' key in section [%s]\n", $value, $section if $section;
