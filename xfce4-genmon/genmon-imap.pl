@@ -335,7 +335,9 @@ Valid config format:
       # Offline  = 1
       #
       # Path to save new messages:
-      # SavePath = ~/mail/yandex
+      # SavePath  = ~/mail/yandex
+      # Mark saved messages as seen:
+      # SeenSaved = 1
 HELP
 
     printf "Invalid '%s' key in section [%s]\n", $value, $section if $section;
