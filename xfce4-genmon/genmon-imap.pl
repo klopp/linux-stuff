@@ -21,8 +21,6 @@ use Mail::IMAPClient;
 use Path::ExpandTilde;
 use Try::Tiny;
 
-use DDP;
-
 # ------------------------------------------------------------------------------
 our $VERSION = 'v1.0';
 const my $EXE_NAME    => basename $PROGRAM_NAME;
@@ -186,10 +184,14 @@ sub _check_mailboxes
             if ( $imap->select( Encode::IMAPUTF7::encode( 'IMAP-UTF-7', $box ) ) ) {
                 $unseen = $imap->unseen();
                 if ($unseen) {
-                    if( $section->{savepath} ) {
+                    if ( $section->{savepath} ) {
                         for ( @{$unseen} ) {
                             my $file = sprintf '%s/mail.%s', $section->{savepath}, $_;
-                            -f $file or $imap->message_to_file( $file, $_ );
+                            if ( !-f $file ) {
+                                if ( $imap->message_to_file( $file, $_ ) ) {
+                                    $section->{seensaved} and $imap->seen($_);
+                                }
+                            }
                         }
                     }
                     $unseen = scalar @{$unseen};
@@ -253,14 +255,13 @@ sub _check_imap_section
         unless ref $content->{mailbox} eq 'ARRAY';
     _help( $section, 'Mailbox' ) unless @{ $content->{mailbox} };
 
-    _values_to_scalar( $content, q{host}, q{user}, q{password} );
+    _values_to_scalar( $content, q{host}, q{user}, q{password}, q{savepath}, q{seensaved} );
 
-    if( $content->{savepath} ) {
+    if ( $content->{savepath} ) {
         $content->{savepath} = expand_tilde( $content->{savepath} );
-        if( !-d $content->{savepath} ) {
-            make_path( $content->{savepath} ) 
-                or Carp::confess 
-                sprintf '[%s] :: can not create "%s"', $section, $content->{savepath};
+        if ( !-d $content->{savepath} ) {
+            make_path( $content->{savepath} ) or Carp::confess sprintf '[%s] :: can not create directory
+                    "%s"', $section, $content->{savepath};
         }
     }
 
