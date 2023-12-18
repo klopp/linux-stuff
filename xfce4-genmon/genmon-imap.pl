@@ -35,10 +35,6 @@ my $cfg = _load_config();
 
 my %data;
 while ( my ( $section, $imap ) = each %{$cfg} ) {
-
-    use DDP;
-    p $imap;
-
     next if $section eq q{_};
     $data{$section} = _check_mailboxes($imap);
 }
