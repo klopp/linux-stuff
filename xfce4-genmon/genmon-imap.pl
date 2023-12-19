@@ -105,8 +105,10 @@ sub _load_config
     if ( $config{_}->{offline} ) {
         defined $config{$_}->{offline} or $config{$_}->{offline} = 1 for keys %config;
     }
-    _check_icon( \%config, q{new} );
-    _check_icon( \%config, q{nonew} );
+#    _check_icon( \%config, q{new} );
+#    _check_icon( \%config, q{nonew} );
+    _check_icon( $config{_}, q{new} );
+    _check_icon( $config{_}, q{nonew} );
     return \%config;
 }
 
@@ -213,30 +215,30 @@ sub _check_mailboxes
 # ------------------------------------------------------------------------------
 sub _check_icon
 {
-    my ( $config, $icon ) = @_;
+    my ( $section, $icon ) = @_;
 
     # 1) No icon, test default files:
-    if ( !$config->{_}->{$icon} ) {
-        $config->{_}->{$icon} = sprintf '%s/.config/%s/%s.png', $ENV{HOME}, $CONFIG_NAME, $icon;
-        $config->{_}->{$icon} = sprintf '%s/%s/%s.png', $EXE_DIR, $CONFIG_NAME, $icon
-            unless -f $config->{_}->{$icon};
+    if ( !$section->{$icon} ) {
+        $section->{$icon} = sprintf '%s/.config/%s/%s.png', $ENV{HOME}, $CONFIG_NAME, $icon;
+        $section->{$icon} = sprintf '%s/%s/%s.png', $EXE_DIR, $CONFIG_NAME, $icon
+            unless -f $section->{$icon};
     }
 
     # 2) File name only, test default locations:
-    elsif ( $config->{_}->{$icon} !~ /\//sm ) {
-        my $iconame = $config->{_}->{$icon};
-        $config->{_}->{$icon} = sprintf '%s/.config/%s/%s', $ENV{HOME}, $CONFIG_NAME, $iconame;
-        $config->{_}->{$icon} = sprintf '%s/%s/%s', $EXE_DIR, $CONFIG_NAME, $iconame
-            unless -f $config->{_}->{$icon};
+    elsif ( $section->{$icon} !~ /\//sm ) {
+        my $iconame = $section->{$icon};
+        $section->{$icon} = sprintf '%s/.config/%s/%s', $ENV{HOME}, $CONFIG_NAME, $iconame;
+        $section->{$icon} = sprintf '%s/%s/%s', $EXE_DIR, $CONFIG_NAME, $iconame
+            unless -f $section->{$icon};
     }
 
-    $config->{_}->{$icon} = expand_tilde $config->{_}->{$icon};
+    $section->{$icon} = expand_tilde $section->{$icon};
 
-    if ( !-f $config->{_}->{$icon} ) {
-        printf "Can not find icon '%s'\n", $config->{_}->{$icon};
+    if ( !-f $section->{$icon} ) {
+        printf "Can not find icon '%s'\n", $section->{$icon};
         _help();
     }
-    return $config;
+    return $section;
 }
 
 # ------------------------------------------------------------------------------
