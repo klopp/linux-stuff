@@ -3,14 +3,11 @@
 # ------------------------------------------------------------------------------
 export LC_NUMERIC="C"
 
-: '
-    ea48f331-40fc-4461-868d-3edf1d503877
-'
 SELF_DIR=$(basename -- "${0}")
 SELF_DIR=${SELF_DIR%.*}
 CONF_IMG="$HOME/.config/${SELF_DIR%.*}/%s.png"
 SELF_IMG="$(cd "$(dirname "${0}")" && pwd)/${SELF_DIR}/%s.png"
-TOOLTIP_FILE="/tmp/${SELF_DIR}\$ea48f331-40fc-4461-868d-3edf1d503877"
+TOOLTIP_FILE="/tmp/${SELF_DIR}.tooltip"
 
 TMAX="90"
 GREEN="green"
@@ -75,6 +72,7 @@ function get_tooltip
         fi
         (( idx++ ))
         tt+="├─ Core $((idx-1)) \t\t: <span weight='bold' fgcolor='${grn}'>${temp}</span>℃\n"
+#        (( idx < ${#all_temp[@]} )) && tt+="\n"
     done
     tt+="└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${1}</span>%\n"
 
@@ -125,8 +123,11 @@ CPU_USED=$((CPU_DELTA - CPU_IDLE))
 
 PERCENTAGE=$((100 * CPU_USED / CPU_DELTA)) 
 
-TOOLTIP=$(get_tooltip ${PERCENTAGE})
+echo ()  { TOOLTIP=$*; }
+get_tooltip ${PERCENTAGE}
+unset -f echo
 
+#TOOLTIP+="\n└─ Usage\t\t: <span weight='bold' fgcolor='blue'>${PERCENTAGE}</span>%\n"
 echo -e "<click>${CLICK} &> /dev/null</click><img>$(get_img)</img>"
 echo -e "<bar>${PERCENTAGE}</bar>"
 echo -e "<tool>${TOOLTIP}</tool>"
